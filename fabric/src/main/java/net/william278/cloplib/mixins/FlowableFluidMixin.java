@@ -19,17 +19,17 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.fluid.FlowableFluid;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FlowingFluid;
 //#if MC==12101
-//$$ import net.minecraft.fluid.Fluid;
+//$$ import net.minecraft.world.level.material.Fluid;
 //#endif
-import net.minecraft.fluid.FluidState;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
 import net.william278.cloplib.events.FluidEvents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -39,7 +39,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Set;
 
-@Mixin(FlowableFluid.class)
+@Mixin(FlowingFluid.class)
 public abstract class FlowableFluidMixin {
 
     // Performance: Ignore up/down fluid flow
@@ -47,42 +47,45 @@ public abstract class FlowableFluidMixin {
     private static final Set<Direction> CLOPLIB_IGNORED_DIRECTIONS = Set.of(Direction.UP, Direction.DOWN);
 
     //#if MC>=12104
-    @Inject(method = "canFlowThrough(Lnet/minecraft/world/BlockView;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/BlockState;Lnet/minecraft/util/math/Direction;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/BlockState;Lnet/minecraft/fluid/FluidState;)Z", at = @At("HEAD"), cancellable = true)
-    private void canFlowThroughMixin(BlockView blockView, BlockPos toPos, BlockState toState, Direction flowDirection,
-                                     BlockPos fromPos, BlockState fromState,
+    // Fluid spreading runs in scheduled ticks on the server; blocking this method
+    // prevents fluid entering the target block, mirroring the vanilla pass-through
+    // check it wraps.
+    @Inject(method = "canMaybePassThrough(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/material/FluidState;)Z", at = @At("HEAD"), cancellable = true)
+    private void canFlowThroughMixin(BlockGetter blockView, BlockPos fromPos, BlockState fromState, Direction flowDirection,
+                                     BlockPos toPos, BlockState toState,
                                      FluidState fluidState, CallbackInfoReturnable<Boolean> cir) {
-        if (!(blockView instanceof ServerWorld world) || CLOPLIB_IGNORED_DIRECTIONS.contains(flowDirection)) {
+        if (!(blockView instanceof ServerLevel world) || CLOPLIB_IGNORED_DIRECTIONS.contains(flowDirection)) {
             return;
         }
 
-        final ActionResult result = FluidEvents.BEFORE_FLOW.invoker().flow(world, fromPos, toPos);
-        if (result == ActionResult.FAIL) {
+        final InteractionResult result = FluidEvents.BEFORE_FLOW.invoker().flow(world, fromPos, toPos);
+        if (result == InteractionResult.FAIL) {
             cir.setReturnValue(false);
         }
     }
     //#else
     //$$ @Inject(method = "canFlowThrough", at = @At("HEAD"), cancellable = true)
-    //$$ private void canFlowThroughMixin(BlockView blockView, Fluid fluid, BlockPos toPos, BlockState state, Direction flowDirection, BlockPos fromPos,
+    //$$ private void canFlowThroughMixin(BlockGetter blockView, Fluid fluid, BlockPos toPos, BlockState state, Direction flowDirection, BlockPos fromPos,
     //$$     BlockState fromState, FluidState fluidState, CallbackInfoReturnable<Boolean> cir) {
-    //$$     if (!(blockView instanceof ServerWorld world) || CLOPLIB_IGNORED_DIRECTIONS.contains(flowDirection)) {
+    //$$     if (!(blockView instanceof ServerLevel world) || CLOPLIB_IGNORED_DIRECTIONS.contains(flowDirection)) {
     //$$         return;
     //$$     }
     //$$
-    //$$     final ActionResult result = FluidEvents.BEFORE_FLOW.invoker().flow(world, fromPos, toPos);
-    //$$     if (result == ActionResult.FAIL) {
+    //$$     final InteractionResult result = FluidEvents.BEFORE_FLOW.invoker().flow(world, fromPos, toPos);
+    //$$     if (result == InteractionResult.FAIL) {
     //$$         cir.setReturnValue(false);
     //$$     }
     //$$ }
     //$$
     //$$ @Inject(method = "canFlow", at = @At("HEAD"), cancellable = true)
-    //$$ private void canFlowMixin(BlockView blockView, BlockPos fromPos, BlockState fluidBlockState, Direction flowDirection, BlockPos toPos,
+    //$$ private void canFlowMixin(BlockGetter blockView, BlockPos fromPos, BlockState fluidBlockState, Direction flowDirection, BlockPos toPos,
     //$$     BlockState flowToBlockState, FluidState fluidState, Fluid fluid, CallbackInfoReturnable<Boolean> cir) {
-    //$$     if (!(blockView instanceof ServerWorld world) || CLOPLIB_IGNORED_DIRECTIONS.contains(flowDirection)) {
+    //$$     if (!(blockView instanceof ServerLevel world) || CLOPLIB_IGNORED_DIRECTIONS.contains(flowDirection)) {
     //$$         return;
     //$$     }
     //$$
-    //$$     final ActionResult result = FluidEvents.BEFORE_FLOW.invoker().flow(world, fromPos, toPos);
-    //$$     if (result == ActionResult.FAIL) {
+    //$$     final InteractionResult result = FluidEvents.BEFORE_FLOW.invoker().flow(world, fromPos, toPos);
+    //$$     if (result == InteractionResult.FAIL) {
     //$$         cir.setReturnValue(false);
     //$$     }
     //$$ }

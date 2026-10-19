@@ -19,15 +19,16 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.block.DispenserBlock;
-import net.minecraft.block.dispenser.ProjectileDispenserBehavior;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ProjectileItem;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPointer;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Position;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.core.dispenser.ProjectileDispenseBehavior;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ProjectileItem;
+import net.minecraft.world.item.ProjectileItem.DispenseConfig;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.dispenser.BlockSource;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Position;
 import net.william278.cloplib.util.ProjectileUtil;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -36,31 +37,25 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(ProjectileDispenserBehavior.class)
+@Mixin(ProjectileDispenseBehavior.class)
 public abstract class ProjectileDispenserBehaviourMixin {
 
     @Final
     @Shadow
-    private ProjectileItem projectile;
+    private ProjectileItem projectileItem;
 
     @Final
     @Shadow
-    private ProjectileItem.Settings projectileSettings;
+    private DispenseConfig dispenseConfig;
 
-    @Inject(method = "dispenseSilently", at = @At(value = "HEAD"), cancellable = true)
-    private void dispenseSilentlyMixin(BlockPointer pointer, ItemStack stack, CallbackInfoReturnable<ItemStack> cir) {
-        ServerWorld serverWorld = pointer.world();
-        Direction direction = pointer.state().get(DispenserBlock.FACING);
-        Position position = this.projectileSettings.positionFunction().getDispensePosition(pointer, direction);
-        //#if MC>=12104
-        final ProjectileEntity entity = ProjectileEntity.spawnWithVelocity(this.projectile.createEntity(serverWorld, position, stack, direction), serverWorld, stack, direction.getOffsetX(), direction.getOffsetY(), direction.getOffsetZ(), this.projectileSettings.power(), this.projectileSettings.uncertainty());
-        //#else
-        //$$ ProjectileEntity entity = this.projectile.createEntity(serverWorld, position, stack, direction);
-        //$$ entity.setVelocity(direction.getOffsetX(), direction.getOffsetY(), direction.getOffsetZ(), this.projectileSettings.power(), this.projectileSettings.uncertainty());
-        //$$ serverWorld.spawnEntity(entity);
-        //#endif
+    @Inject(method = "execute", at = @At(value = "HEAD"), cancellable = true)
+    private void dispenseSilentlyMixin(BlockSource pointer, ItemStack stack, CallbackInfoReturnable<ItemStack> cir) {
+        ServerLevel serverWorld = pointer.level();
+        Direction direction = pointer.state().getValue(DispenserBlock.FACING);
+        Position position = this.dispenseConfig.positionFunction().getDispensePosition(pointer, direction);
+        final Projectile entity = Projectile.spawnProjectile(this.projectileItem.asProjectile(serverWorld, position, stack, direction), serverWorld, stack, p -> p.shoot(direction.getStepX(), direction.getStepY(), direction.getStepZ(), this.dispenseConfig.power(), this.dispenseConfig.uncertainty()));
         ProjectileUtil.markOrigin(entity, pointer.pos());
-        stack.decrement(1);
+        stack.shrink(1);
         cir.setReturnValue(stack);
         cir.cancel();
     }

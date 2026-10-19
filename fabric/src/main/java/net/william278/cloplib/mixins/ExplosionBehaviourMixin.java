@@ -19,24 +19,24 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.world.explosion.AdvancedExplosionBehavior;
-import net.minecraft.world.explosion.Explosion;
-import net.minecraft.world.explosion.ExplosionBehavior;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.SimpleExplosionDamageCalculator;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.ExplosionDamageCalculator;
 import net.william278.cloplib.events.ExplosionEvents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = {ExplosionBehavior.class, AdvancedExplosionBehavior.class})
+@Mixin(value = {ExplosionDamageCalculator.class, SimpleExplosionDamageCalculator.class})
 public class ExplosionBehaviourMixin {
 
-    @Inject(method = "shouldDamage", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "shouldDamageEntity", at = @At("HEAD"), cancellable = true)
     private void shouldDamageMixin(Explosion explosion, Entity entity, CallbackInfoReturnable<Boolean> cir) {
-        final ActionResult result = ExplosionEvents.BEFORE_DAMAGE_ENTITY.invoker().damage(explosion, entity);
-        if (result == ActionResult.FAIL) {
+        final InteractionResult result = ExplosionEvents.BEFORE_DAMAGE_ENTITY.invoker().damage(explosion, entity);
+        if (result == InteractionResult.FAIL) {
             cir.setReturnValue(false);
             cir.cancel();
         }

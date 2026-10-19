@@ -21,10 +21,10 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
 
@@ -37,13 +37,13 @@ public final class PistonEvents {
             BeforeActuationCallback.class,
             (callbacks) -> (world, pistonPos, pistonDirection, affectedBlocks) -> {
                 for (BeforeActuationCallback listener : callbacks) {
-                    final ActionResult result = listener.actuate(world, pistonPos, pistonDirection, affectedBlocks);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.actuate(world, pistonPos, pistonDirection, affectedBlocks);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -51,7 +51,7 @@ public final class PistonEvents {
     public interface BeforeActuationCallback {
 
         @NotNull
-        ActionResult actuate(World world, BlockPos pistonPos, Direction pistonDirection,
+        InteractionResult actuate(Level world, BlockPos pistonPos, Direction pistonDirection,
                              @Unmodifiable List<BlockPos> affectedBlocks);
 
     }

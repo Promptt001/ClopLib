@@ -20,12 +20,13 @@
 package net.william278.cloplib.mixins;
 
 import com.google.common.collect.Streams;
-import net.minecraft.block.piston.PistonHandler;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.piston.PistonStructureResolver;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
 import net.william278.cloplib.events.PistonEvents;
+import net.william278.cloplib.util.ClientSide;
 import org.jetbrains.annotations.Unmodifiable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -37,42 +38,51 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.List;
 
-@Mixin(PistonHandler.class)
+@Mixin(PistonStructureResolver.class)
 public abstract class PistonHandlerMixin {
 
     @Final
     @Shadow
-    private World world;
+    private Level level;
     @Final
     @Shadow
-    private BlockPos posFrom; // Piston location
+    private BlockPos pistonPos; // Piston location
     @Final
     @Shadow
     private Direction pistonDirection;
     @Final
     @Shadow
-    private List<BlockPos> movedBlocks;
+    private List<BlockPos> toPush;
     @Final
     @Shadow
-    private List<BlockPos> brokenBlocks;
+    private List<BlockPos> toDestroy;
 
+    // Piston structures resolve on the client too (block event animation), so client
+    // worlds are skipped; the listener checks again in case a future registration
+    // forgets to.
     // When one block is destroyed
-    @Inject(method = "calculatePush", at = @At(value = "RETURN", ordinal = 0), cancellable = true)
+    @Inject(method = "resolve", at = @At(value = "RETURN", ordinal = 0), cancellable = true)
     private void calculatePushSingleDestroyMixin(CallbackInfoReturnable<Boolean> cir) {
-        final ActionResult result = PistonEvents.BEFORE_ACTUATION.invoker()
-                .actuate(world, posFrom, pistonDirection, getChangedBlocks());
-        if (result == ActionResult.FAIL) {
+        if (ClientSide.skip(level)) {
+            return;
+        }
+        final InteractionResult result = PistonEvents.BEFORE_ACTUATION.invoker()
+                .actuate(level, pistonPos, pistonDirection, getChangedBlocks());
+        if (result == InteractionResult.FAIL) {
             cir.setReturnValue(false);
             cir.cancel();
         }
     }
 
     // When one or more blocks are moved or destroyed
-    @Inject(method = "calculatePush", at = @At(value = "RETURN", ordinal = 4), cancellable = true)
+    @Inject(method = "resolve", at = @At(value = "RETURN", ordinal = 4), cancellable = true)
     private void calculatePushOneOrMoreMoveMixin(CallbackInfoReturnable<Boolean> cir) {
-        final ActionResult result = PistonEvents.BEFORE_ACTUATION.invoker()
-                .actuate(world, posFrom, pistonDirection, getChangedBlocks());
-        if (result == ActionResult.FAIL) {
+        if (ClientSide.skip(level)) {
+            return;
+        }
+        final InteractionResult result = PistonEvents.BEFORE_ACTUATION.invoker()
+                .actuate(level, pistonPos, pistonDirection, getChangedBlocks());
+        if (result == InteractionResult.FAIL) {
             cir.setReturnValue(false);
             cir.cancel();
         }
@@ -81,7 +91,7 @@ public abstract class PistonHandlerMixin {
     @Unique
     @Unmodifiable
     private List<BlockPos> getChangedBlocks() {
-        return Streams.concat(movedBlocks.stream(), brokenBlocks.stream()).toList();
+        return Streams.concat(toPush.stream(), toDestroy.stream()).toList();
     }
 
 }

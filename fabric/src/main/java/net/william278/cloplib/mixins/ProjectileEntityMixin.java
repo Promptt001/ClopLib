@@ -19,12 +19,13 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.william278.cloplib.events.ProjectileEvents;
+import net.william278.cloplib.util.ClientSide;
 import net.william278.cloplib.util.ProjectileUtil;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,7 +34,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(ProjectileEntity.class)
+@Mixin(Projectile.class)
 public abstract class ProjectileEntityMixin {
 
 //#if MC>=12107
@@ -44,8 +45,14 @@ public abstract class ProjectileEntityMixin {
 //$$  private Entity owner; // The shooter
 //#endif
 
-    @Inject(method = "onEntityHit", at = @At("HEAD"), cancellable = true)
+    // Projectiles tick on the client too (for hit rendering), so client worlds are
+    // skipped; the listener checks again in case a future registration forgets to.
+    @Inject(method = "onHitEntity", at = @At("HEAD"), cancellable = true)
     protected void onEntityHitMixin(EntityHitResult hit, CallbackInfo ci) {
+        final Projectile projectile = (Projectile) (Object) this;
+        if (ClientSide.skip(projectile.level())) {
+            return;
+        }
         final Entity entity = hit.getEntity();
         //#if MC>=12107
         final Entity owner = getOwner();
@@ -53,31 +60,33 @@ public abstract class ProjectileEntityMixin {
         if (entity == owner) {
             return;
         }
-        final ProjectileEntity projectile = (ProjectileEntity) (Object) this;
-        final ActionResult result = ProjectileEvents.BEFORE_ENTITY_HIT.invoker().entityHit(
+        final InteractionResult result = ProjectileEvents.BEFORE_ENTITY_HIT.invoker().entityHit(
                 entity, projectile, owner, ProjectileUtil.getOrigin(projectile)
         );
-        if (result == ActionResult.FAIL) {
+        if (result == InteractionResult.FAIL) {
             ci.cancel();
         }
     }
 
-    @Inject(method = "onBlockHit", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "onHitBlock", at = @At("HEAD"), cancellable = true)
     private void onBlockHitMixin(BlockHitResult hit, CallbackInfo ci) {
         //#if MC>=12104
-        if (hit.isAgainstWorldBorder()) {
+        if (hit.isWorldBorderHit()) {
             return;
         }
         //#endif
-        final ProjectileEntity projectile = (ProjectileEntity) (Object) this;
+        final Projectile projectile = (Projectile) (Object) this;
+        if (ClientSide.skip(projectile.level())) {
+            return;
+        }
         //#if MC>=12107
         final Entity owner = getOwner();
         //#endif
-        final ActionResult result = ProjectileEvents.BEFORE_BLOCK_HIT.invoker().blockHit(
-                hit.getBlockPos(), projectile.getWorld(), projectile, owner,
+        final InteractionResult result = ProjectileEvents.BEFORE_BLOCK_HIT.invoker().blockHit(
+                hit.getBlockPos(), projectile.level(), projectile, owner,
                 ProjectileUtil.getOrigin(projectile)
         );
-        if (result == ActionResult.FAIL) {
+        if (result == InteractionResult.FAIL) {
             ci.cancel();
         }
     }

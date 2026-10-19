@@ -19,15 +19,16 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.enchantment.EnchantmentEffectContext;
-import net.minecraft.enchantment.effect.entity.SetBlockPropertiesEnchantmentEffect;
-import net.minecraft.entity.Entity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
+import net.minecraft.world.item.enchantment.EnchantedItemInUse;
+import net.minecraft.world.item.enchantment.effects.SetBlockProperties;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.core.Vec3i;
 import net.william278.cloplib.events.EnchantmentEffectEvents;
+import net.william278.cloplib.util.ClientSide;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -37,19 +38,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // For emitting the place block operation when users have frost walker.
 // Set and replace are both used here by the game and are nearly identical, so we mixin to both.
-@Mixin(SetBlockPropertiesEnchantmentEffect.class)
+@Mixin(SetBlockProperties.class)
 public abstract class SetBlockPropertiesEnchantmentEffectMixin {
 
     @Shadow
     @Final
     private Vec3i offset;
 
+    // Frost walker runs its block placement prediction on the client too, so client
+    // worlds are skipped; the listener checks again in case a future registration
+    // forgets to.
     @Inject(method = "apply", at = @At("HEAD"), cancellable = true)
-    void applyMixin(ServerWorld world, int level, EnchantmentEffectContext context, Entity user, Vec3d pos,
+    void applyMixin(ServerLevel world, int level, EnchantedItemInUse context, Entity user, Vec3 pos,
                     CallbackInfo ci) {
-        final ActionResult result = EnchantmentEffectEvents.BEFORE_BLOCK_UPDATE.invoker().blockUpdate(user, world,
-                BlockPos.ofFloored(pos).add(this.offset));
-        if (result == ActionResult.FAIL) {
+        if (ClientSide.skip(world)) {
+            return;
+        }
+        final InteractionResult result = EnchantmentEffectEvents.BEFORE_BLOCK_UPDATE.invoker().blockUpdate(user, world,
+                BlockPos.containing(pos).offset(this.offset));
+        if (result == InteractionResult.FAIL) {
             ci.cancel();
         }
     }

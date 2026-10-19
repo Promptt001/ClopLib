@@ -21,10 +21,10 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.explosion.Explosion;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Explosion;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
 
@@ -48,13 +48,13 @@ public class ExplosionEvents {
             BeforeDamageEntity.class,
             (callbacks) -> (explosion, entity) -> {
                 for (BeforeDamageEntity listener : callbacks) {
-                    final ActionResult result = listener.damage(explosion, entity);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.damage(explosion, entity);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -62,7 +62,7 @@ public class ExplosionEvents {
     public interface BeforeDamageEntity {
 
         @NotNull
-        ActionResult damage(Explosion explosion, Entity entity);
+        InteractionResult damage(Explosion explosion, Entity entity);
 
     }
 

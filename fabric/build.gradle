@@ -5,14 +5,26 @@ plugins {
 }
 
 def isMainProject = project.name == file("../mainProject").readLines()[0].trim()
+def mcVersionParts = project.name.tokenize('.').collect { it as int }
+def mcMajor = mcVersionParts[0]
+def isUnobfuscatedRuntime = mcMajor >= 26
+project.ext.fabricRuntimeJarTaskName = isUnobfuscatedRuntime ? 'packageFabricJar' : 'remapJar'
+
 
 dependencies {
-    modCompileOnly "net.fabricmc.fabric-api:fabric-api:$fabric_api_version"
+    def fabricApiDependency = { notation ->
+        add(isUnobfuscatedRuntime ? 'implementation' : 'modImplementation', notation)
+    }
 
-    modImplementation include("me.lucko:fabric-permissions-api:$fabric_permissions_api_version")
+    if (isUnobfuscatedRuntime) {
+        implementation include("me.lucko:fabric-permissions-api:$fabric_permissions_api_version")
+    } else {
+        modImplementation include("me.lucko:fabric-permissions-api:$fabric_permissions_api_version")
+    }
+    fabricApiDependency("net.fabricmc.fabric-api:fabric-api:$fabric_api_version")
 
-    modCompileOnly 'org.projectlombok:lombok:1.18.38'
-    annotationProcessor 'org.projectlombok:lombok:1.18.38'
+    compileOnly 'org.projectlombok:lombok:1.18.42'
+    annotationProcessor 'org.projectlombok:lombok:1.18.42'
 
     shadow project(path: ':common')
 }
@@ -28,14 +40,75 @@ shadowJar {
     exclude '/mappings/*'
 }
 
-remapJar {
-    dependsOn tasks.shadowJar
-    mustRunAfter tasks.shadowJar
-    inputFile = shadowJar.archiveFile.get()
-    addNestedDependencies = true
+if (isUnobfuscatedRuntime) {
+    // The standard jar task's output collides with packageFabricJar's (same archive name in build/libs)
+    tasks.matching { it.name == 'jar' }.configureEach {
+        archiveClassifier.set('raw-internal')
+    }
+    tasks.register('packageFabricJar', Jar) {
+        def generatedFabricModJson = layout.buildDirectory.file('tmp/packageFabricJar/fabric.mod.json')
 
-    destinationDirectory.set(file("$rootDir/target/"))
-    archiveClassifier.set('')
+        dependsOn tasks.shadowJar
+        dependsOn tasks.processIncludeJars
+        mustRunAfter tasks.shadowJar
+        mustRunAfter tasks.processIncludeJars
+
+        from(zipTree(shadowJar.archiveFile.get().asFile)) {
+            exclude 'fabric.mod.json'
+        }
+        from(generatedFabricModJson)
+        into('META-INF/jars') {
+            from("$buildDir/processIncludeJars")
+        }
+
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        destinationDirectory.set(file("$rootDir/target/"))
+        archiveClassifier.set('')
+        archiveBaseName.set(shadowJar.archiveBaseName.get())
+        archiveVersion.set(shadowJar.archiveVersion.get())
+
+        doFirst {
+            def fabricModJson = new groovy.json.JsonSlurper().parse(file("$buildDir/resources/main/fabric.mod.json"))
+            fabricModJson.jars = fileTree("$buildDir/processIncludeJars")
+                    .matching { include '*.jar' }
+                    .files
+                    .sort { it.name }
+                    .collect { [file: "META-INF/jars/${it.name}"] }
+
+            def outputFile = generatedFabricModJson.get().asFile
+            outputFile.parentFile.mkdirs()
+            outputFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(fabricModJson))
+        }
+    }
+
+    assemble.dependsOn(tasks.named('packageFabricJar'))
+    tasks.matching { it.name == 'remapJar' }.configureEach {
+        enabled = false
+    }
+} else {
+    remapJar {
+        dependsOn tasks.shadowJar
+        mustRunAfter tasks.shadowJar
+        inputFile = shadowJar.archiveFile.get().asFile
+        addNestedDependencies = true
+
+        destinationDirectory.set(file("$rootDir/target/"))
+        archiveClassifier.set('')
+    }
+
+    assemble.dependsOn(tasks.named('remapJar'))
+    shadowJar.finalizedBy(remapJar)
 }
-
-shadowJar.finalizedBy(remapJar)
+// Ban client-only imports from the shared main sources: this code also runs on dedicated servers.
+tasks.register('checkNoClientClasses') {
+    def sources = fileTree('../src/main/java') + fileTree('src/main/java')
+    inputs.files(sources)
+    doLast {
+        def banned = ~/^\s*import\s+(net\.minecraft\.client\.|com\.mojang\.blaze3d\.|net\.fabricmc\.fabric\.api\.client\.)/
+        def offenders = sources.files.findAll { f -> f.name.endsWith('.java') && f.readLines().any { it ==~ banned } }
+        if (!offenders.isEmpty()) {
+            throw new GradleException("Client-only imports in common sources: " + offenders*.name.join(', '))
+        }
+    }
+}
+tasks.named('check') { dependsOn 'checkNoClientClasses' }

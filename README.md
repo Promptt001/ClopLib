@@ -1,15 +1,8 @@
+> **Fork notice.** This is a fork of [ClopLib](https://github.com/WiIIiam278/ClopLib) maintained for [HuskClaimsPlus](https://github.com/Promptt001/HuskClaimsPlus). It adds Fabric 26.2 and 26.3 support. It is not made or supported by William278 — use upstream ClopLib for anything else. What changed, and why: [MODIFICATIONS.md](MODIFICATIONS.md).
+
 <!--suppress ALL -->
 <p align="center">
     <img src="images/banner.png" alt="Claim Operations Library" />
-    <a href="https://github.com/WiIIiam278/ClopLib/actions/workflows/ci.yml">
-        <img src="https://img.shields.io/github/actions/workflow/status/WiIIiam278/ClopLib/ci.yml?branch=master&logo=github"/>
-    </a> 
-    <a href="https://repo.william278.net/#/releases/net/william278/cloplib/">
-        <img src="https://repo.william278.net/api/badge/latest/releases/net/william278/cloplib/cloplib-common?color=00fb9a&name=Maven&prefix=v"/>
-    </a> 
-    <a href="https://discord.gg/tVYhJfyDWG">
-        <img src="https://img.shields.io/discord/818135932103557162.svg?label=&logo=discord&logoColor=fff&color=7389D8&labelColor=6A7EC2" />
-    </a> 
 </p>
 <br/>
 

@@ -19,18 +19,18 @@
 
 package net.william278.cloplib.listener;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
 import net.william278.cloplib.operation.Operation;
 import net.william278.cloplib.operation.OperationType;
 import org.jetbrains.annotations.NotNull;
@@ -45,11 +45,11 @@ public interface FabricBreakListener extends FabricListener {
     Map<UUID, BlockPos> getLastBreakPositions();
 
     // When a player starts breaking a block
-    default ActionResult onPlayerStartBreakBlock(PlayerEntity playerEntity, World world, Hand ignoredHand,
+    default InteractionResult onPlayerStartBreakBlock(Player playerEntity, Level world, InteractionHand ignoredHand,
                                                  BlockPos pos, Direction ignoredDirection) {
         final BlockState state = world.getBlockState(pos);
-        final boolean isBlock = state != null && !Blocks.AIR.getDefaultState().equals(state);
-        final BlockPos lastPos = getLastBreakPositions().get(playerEntity.getUuid());
+        final boolean isBlock = state != null && !Blocks.AIR.defaultBlockState().equals(state);
+        final BlockPos lastPos = getLastBreakPositions().get(playerEntity.getUUID());
         if (isBlock && getHandler().cancelOperation(Operation.of(
                 getUser(playerEntity),
                 getChecker().isFarmMaterial(FabricListener.getId(state.getBlock()))
@@ -57,14 +57,14 @@ public interface FabricBreakListener extends FabricListener {
                 getPosition(pos, world),
                 pos.equals(lastPos)
         ))) {
-            getLastBreakPositions().put(playerEntity.getUuid(), pos);
-            return ActionResult.FAIL;
+            getLastBreakPositions().put(playerEntity.getUUID(), pos);
+            return InteractionResult.FAIL;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
     // After a block is broken
-    default boolean onPlayerBreakBlock(World world, PlayerEntity playerEntity, BlockPos pos,
+    default boolean onPlayerBreakBlock(Level world, Player playerEntity, BlockPos pos,
                                        @Nullable BlockState block, @Nullable BlockEntity tileEntity) {
         if (block != null && getHandler().cancelOperation(Operation.of(
                 getUser(playerEntity),
@@ -79,13 +79,13 @@ public interface FabricBreakListener extends FabricListener {
     }
 
     // Send an update packet to the client when breaking blocks w/ tile entities to fix desync
-    private void sendTileEntityUpdate(@Nullable BlockEntity tileEntity, @NotNull PlayerEntity playerEntity) {
-        if (tileEntity == null || !(playerEntity instanceof ServerPlayerEntity player)) {
+    private void sendTileEntityUpdate(@Nullable BlockEntity tileEntity, @NotNull Player playerEntity) {
+        if (tileEntity == null || !(playerEntity instanceof ServerPlayer player)) {
             return;
         }
-        final Packet<ClientPlayPacketListener> tileUpdate = tileEntity.toUpdatePacket();
+        final Packet<ClientGamePacketListener> tileUpdate = tileEntity.getUpdatePacket();
         if (tileUpdate != null) {
-            player.networkHandler.sendPacket(tileUpdate);
+            player.connection.send(tileUpdate);
         }
     }
 

@@ -19,18 +19,18 @@
 
 package net.william278.cloplib.listener;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.VehicleEntity;
-import net.minecraft.entity.vehicle.VehicleInventory;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.VehicleEntity;
+import net.minecraft.world.entity.vehicle.ContainerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.level.Level;
 import net.william278.cloplib.operation.Operation;
 import net.william278.cloplib.operation.OperationType;
 import org.jetbrains.annotations.NotNull;
@@ -39,11 +39,11 @@ import org.jetbrains.annotations.Nullable;
 public interface FabricUseEntityListener extends FabricListener {
 
     @NotNull
-    default ActionResult onPlayerUseEntity(PlayerEntity playerEntity, World world, Hand hand, Entity entity,
+    default InteractionResult onPlayerUseEntity(Player playerEntity, Level world, InteractionHand hand, Entity entity,
                                            @Nullable EntityHitResult entityHitResult) {
-        if (!(playerEntity instanceof ServerPlayerEntity player) ||
-                player.isSpectator() || entity instanceof PlayerEntity) {
-            return ActionResult.PASS;
+        if (!(playerEntity instanceof ServerPlayer player) ||
+                player.isSpectator() || entity instanceof Player) {
+            return InteractionResult.PASS;
         }
 
         if (entityHitResult == null) {
@@ -53,40 +53,40 @@ public interface FabricUseEntityListener extends FabricListener {
     }
 
     @NotNull
-    private ActionResult onPlayerHitClickEntity(ServerPlayerEntity player, Entity entity, World world, Hand hand,
+    private InteractionResult onPlayerHitClickEntity(ServerPlayer player, Entity entity, Level world, InteractionHand hand,
                                                 EntityHitResult entityHitResult) {
 
-        if (entity instanceof ArmorStandEntity || entity instanceof ItemFrameEntity) {
+        if (entity instanceof ArmorStand || entity instanceof ItemFrame) {
             return getHandler().cancelOperation(Operation.of(
                     getUser(player),
                     OperationType.CONTAINER_OPEN,
-                    getPosition(entityHitResult.getPos(), world, entity.getYaw(), entity.getPitch()),
-                    hand == Hand.OFF_HAND
-            )) ? ActionResult.FAIL : ActionResult.PASS;
+                    getPosition(entityHitResult.getLocation(), world, entity.getYRot(), entity.getXRot()),
+                    hand == InteractionHand.OFF_HAND
+            )) ? InteractionResult.FAIL : InteractionResult.PASS;
         }
 
         // Only do this check on mobs (above handlers manages other cases)
-        if (entity instanceof MobEntity) {
+        if (entity instanceof Mob) {
             return getHandler().cancelOperation(Operation.of(
                     getUser(player),
                     OperationType.ENTITY_INTERACT,
-                    getPosition(entityHitResult.getPos(), world, entity.getYaw(), entity.getPitch()),
-                    hand == Hand.OFF_HAND
-            )) ? ActionResult.FAIL : ActionResult.PASS;
+                    getPosition(entityHitResult.getLocation(), world, entity.getYRot(), entity.getXRot()),
+                    hand == InteractionHand.OFF_HAND
+            )) ? InteractionResult.FAIL : InteractionResult.PASS;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
     @NotNull
-    private ActionResult onPlayerClickEntity(ServerPlayerEntity player, Entity entity, World world, Hand hand) {
+    private InteractionResult onPlayerClickEntity(ServerPlayer player, Entity entity, Level world, InteractionHand hand) {
         // Check against interacting with container vehicles
-        if (((entity instanceof VehicleEntity && entity instanceof VehicleInventory))) {
+        if (((entity instanceof VehicleEntity && entity instanceof ContainerEntity))) {
             return getHandler().cancelOperation(Operation.of(
                     getUser(player),
                     OperationType.CONTAINER_OPEN,
-                    getPosition(entity.getPos(), world, entity.getYaw(), entity.getPitch()),
-                    hand == Hand.OFF_HAND
-            )) ? ActionResult.FAIL : ActionResult.PASS;
+                    getPosition(entity.position(), world, entity.getYRot(), entity.getXRot()),
+                    hand == InteractionHand.OFF_HAND
+            )) ? InteractionResult.FAIL : InteractionResult.PASS;
         }
 
         // Allow interacting with hostiles
@@ -94,20 +94,20 @@ public interface FabricUseEntityListener extends FabricListener {
             return getHandler().cancelOperation(Operation.of(
                     getUser(player),
                     OperationType.PLAYER_DAMAGE_MONSTER,
-                    getPosition(entity.getPos(), world, entity.getYaw(), entity.getPitch()),
-                    hand == Hand.OFF_HAND
-            )) ? ActionResult.FAIL : ActionResult.PASS;
+                    getPosition(entity.position(), world, entity.getYRot(), entity.getXRot()),
+                    hand == InteractionHand.OFF_HAND
+            )) ? InteractionResult.FAIL : InteractionResult.PASS;
         }
 
         if (getHandler().cancelOperation(Operation.of(
                 getUser(player),
                 OperationType.ENTITY_INTERACT,
-                getPosition(entity.getPos(), world, entity.getYaw(), entity.getPitch()),
-                hand == Hand.OFF_HAND
+                getPosition(entity.position(), world, entity.getYRot(), entity.getXRot()),
+                hand == InteractionHand.OFF_HAND
         ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
 }

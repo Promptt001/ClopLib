@@ -19,12 +19,12 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.village.raid.Raid;
-import net.minecraft.village.raid.RaidManager;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.raid.Raid;
+import net.minecraft.world.entity.raid.Raids;
 import net.william278.cloplib.events.RaidEvents;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,13 +33,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(RaidManager.class)
+@Mixin(Raids.class)
 public abstract class RaidManagerMixin {
 
-    @Inject(method = "startRaid", at = @At(value = "INVOKE", target = "Lnet/minecraft/village/raid/RaidManager;getOrCreateRaid(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/village/raid/Raid;"), cancellable = true)
-    private void startRaidMixin(ServerPlayerEntity player, BlockPos pos, CallbackInfoReturnable<Raid> cir) {
-        final ActionResult result = RaidEvents.BEFORE_START.invoker().starts(getServerWorld(player), pos, player);
-        if (result == ActionResult.FAIL) {
+    @Inject(method = "createOrExtendRaid", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raids;getOrCreateRaid(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/entity/raid/Raid;"), cancellable = true)
+    private void startRaidMixin(ServerPlayer player, BlockPos pos, CallbackInfoReturnable<Raid> cir) {
+        final InteractionResult result = RaidEvents.BEFORE_START.invoker().starts(getServerWorld(player), pos, player);
+        if (result == InteractionResult.FAIL) {
             cir.setReturnValue(null);
             cir.cancel();
         }
@@ -47,9 +47,9 @@ public abstract class RaidManagerMixin {
 
     @Unique
     @NotNull
-    private ServerWorld getServerWorld(ServerPlayerEntity player) {
+    private ServerLevel getServerWorld(ServerPlayer player) {
 //#if MC>=12107
-        return player.getWorld();
+        return player.level();
 //#else
 //$$    return player.getServerWorld();
 //#endif

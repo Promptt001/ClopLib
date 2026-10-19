@@ -8,11 +8,11 @@
     "William278"
   ],
   "contact": {
-    "homepage": "https://william278.net/project/cloplib",
-    "issues": "https://github.com/WiIIiam278/ClopLib/issues",
-    "sources": "https://github.com/WiIIiam278/ClopLib"
+    "homepage": "https://github.com/Promptt001/HuskClaimsPlus",
+    "issues": "https://github.com/Promptt001/ClopLib/issues",
+    "sources": "https://github.com/Promptt001/ClopLib"
   },
-  "license": "GPL-3.0",
+  "license": "Apache-2.0",
   "custom": {
     "modmenu:api": true,
     "modmenu": {

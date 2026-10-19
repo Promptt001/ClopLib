@@ -19,16 +19,18 @@
 
 package net.william278.cloplib.listener;
 
-import net.minecraft.block.Block;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.*;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.Item;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import net.william278.cloplib.handler.Handler;
 import net.william278.cloplib.handler.TypeChecker;
 import net.william278.cloplib.operation.OperationPosition;
@@ -41,15 +43,15 @@ import java.util.Optional;
 public interface FabricListener extends InspectorCallbackProvider {
 
     @NotNull
-    OperationPosition getPosition(@NotNull Vec3d pos, @NotNull net.minecraft.world.World world, float yaw, float pitch);
+    OperationPosition getPosition(@NotNull Vec3 pos, @NotNull net.minecraft.world.level.Level world, float yaw, float pitch);
 
     @NotNull
-    default OperationPosition getPosition(@NotNull BlockPos pos, @NotNull net.minecraft.world.World world) {
-        return this.getPosition(pos.toCenterPos(), world, 0.0f, 0.0f);
+    default OperationPosition getPosition(@NotNull BlockPos pos, @NotNull net.minecraft.world.level.Level world) {
+        return this.getPosition(Vec3.atCenterOf(pos), world, 0.0f, 0.0f);
     }
 
     @NotNull
-    OperationUser getUser(@NotNull PlayerEntity player);
+    OperationUser getUser(@NotNull Player player);
 
     @NotNull
     Handler getHandler();
@@ -57,34 +59,34 @@ public interface FabricListener extends InspectorCallbackProvider {
     @NotNull
     TypeChecker getChecker();
 
-    default Optional<ServerPlayerEntity> getPlayerSource(@Nullable Entity e) {
+    default Optional<ServerPlayer> getPlayerSource(@Nullable Entity e) {
         if (e == null) {
             return Optional.empty();
         }
-        if (e instanceof ServerPlayerEntity player) {
+        if (e instanceof ServerPlayer player) {
             return Optional.of(player);
         }
-        if (e instanceof ProjectileEntity projectile && projectile.getOwner() instanceof ServerPlayerEntity player) {
+        if (e instanceof Projectile projectile && projectile.getOwner() instanceof ServerPlayer player) {
             return Optional.of(player);
         }
-        return e.getPassengerList().stream()
-                .filter(p -> p instanceof ServerPlayerEntity)
-                .map(p -> (ServerPlayerEntity) p)
+        return e.getPassengers().stream()
+                .filter(p -> p instanceof ServerPlayer)
+                .map(p -> (ServerPlayer) p)
                 .findFirst();
     }
 
     default boolean isMonster(@Nullable Entity entity) {
-        return entity instanceof Monster || entity instanceof Angerable;
+        return entity instanceof Monster || entity instanceof Enemy;
     }
 
     @NotNull
     static String getId(@NotNull Item item) {
-        return Registries.ITEM.getId(item).toString();
+        return BuiltInRegistries.ITEM.getKey(item).toString();
     }
 
     @NotNull
     static String getId(@NotNull Block block) {
-        return Registries.BLOCK.getId(block).toString();
+        return BuiltInRegistries.BLOCK.getKey(block).toString();
     }
 
 }

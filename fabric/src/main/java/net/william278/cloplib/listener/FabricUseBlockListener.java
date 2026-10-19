@@ -20,26 +20,29 @@
 package net.william278.cloplib.listener;
 
 import com.google.common.collect.Maps;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BeaconBlockEntity;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.CampfireBlockEntity;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.BucketItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.BeaconBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.CampfireBlockEntity;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.Container;
+import net.minecraft.world.WorldlyContainer;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.BucketItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import net.william278.cloplib.handler.TypeChecker;
 import net.william278.cloplib.operation.Operation;
 import net.william278.cloplib.operation.OperationPosition;
@@ -56,12 +59,12 @@ public interface FabricUseBlockListener extends FabricListener {
     // Map of use block predicates to operation types
     Map<BiPredicate<Block, TypeChecker>, OperationType> USE_BLOCK_PREDICATE_MAP = Maps.newLinkedHashMap(Map.of(
             (b, c) -> b instanceof CampfireBlock || b instanceof BeaconBlock, OperationType.CONTAINER_OPEN,
-            (b, c) -> b instanceof AbstractSignBlock, OperationType.BLOCK_PLACE,
+            (b, c) -> b instanceof SignBlock, OperationType.BLOCK_PLACE,
             (b, c) -> c.isFarmMaterial(FabricListener.getId(b)), OperationType.FARM_BLOCK_INTERACT,
-            (b, c) -> b instanceof DoorBlock || b instanceof TrapdoorBlock
+            (b, c) -> b instanceof DoorBlock || b instanceof TrapDoorBlock
                     || b instanceof FenceGateBlock, OperationType.BLOCK_INTERACT,
             (b, c) -> c.isPressureSensitiveMaterial(FabricListener.getId(b)) || b instanceof LeverBlock ||
-                    b instanceof ButtonBlock || b instanceof RedstoneOreBlock, OperationType.REDSTONE_INTERACT
+                    b instanceof ButtonBlock || b instanceof RedStoneOreBlock, OperationType.REDSTONE_INTERACT
     ));
 
     @NotNull
@@ -77,20 +80,20 @@ public interface FabricUseBlockListener extends FabricListener {
     }
 
     default void precalculateBlocks(@NotNull Map<String, OperationType> map) {
-        Registries.BLOCK.forEach((i) -> testBlockPredicate(i).ifPresent(
-                type -> map.put(Registries.BLOCK.getId(i).toString(), type)));
+        BuiltInRegistries.BLOCK.forEach((i) -> testBlockPredicate(i).ifPresent(
+                type -> map.put(BuiltInRegistries.BLOCK.getKey(i).toString(), type)));
     }
 
     @NotNull
-    default ActionResult onPlayerUseBlock(PlayerEntity playerEntity, World world, Hand hand, BlockHitResult blockHit) {
-        if (blockHit.getType() != HitResult.Type.BLOCK || !(playerEntity instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+    default InteractionResult onPlayerUseBlock(Player playerEntity, Level world, InteractionHand hand, BlockHitResult blockHit) {
+        if (blockHit.getType() != HitResult.Type.BLOCK || !(playerEntity instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
 
         // Check clicked block is not air
         final BlockState blockState = world.getBlockState(blockHit.getBlockPos());
         if (blockState == null || blockState.isAir()) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
         // Check entity
@@ -99,39 +102,58 @@ public interface FabricUseBlockListener extends FabricListener {
                 getUser(player),
                 operationType,
                 getPosition(blockHit.getBlockPos(), world),
-                hand == Hand.OFF_HAND
+                hand == InteractionHand.OFF_HAND
         ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
 
-        // Check precalculated block operation map
-        operationType = getPrecalculatedBlockMap().get(Registries.BLOCK.getId(blockState.getBlock()).toString());
-        final ItemStack held = playerEntity.getStackInHand(hand);
+        // Check the clicked block's own interaction (doors, levers, farmland and similar)
+        operationType = getPrecalculatedBlockMap().get(BuiltInRegistries.BLOCK.getKey(blockState.getBlock()).toString());
         if (operationType != null && getHandler().cancelOperation(Operation.of(
                 getUser(player),
                 operationType,
                 getPosition(blockHit.getBlockPos(), world),
-                hand == Hand.OFF_HAND
+                hand == InteractionHand.OFF_HAND
         ))) {
-            return ActionResult.FAIL;
-        } else if (held != null && (held.getItem() instanceof BlockItem || held.getItem() instanceof BucketItem) &&
-                getHandler().cancelOperation(Operation.of(
-                        getUser(player),
-                        getPrecalculatedItemMap().getOrDefault(held.toString(), OperationType.BLOCK_PLACE),
-                        getPosition(BlockPos.ofFloored(blockHit.getPos().offset(blockHit.getSide(), 1.0d)), world)
-                ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
-        return ActionResult.PASS;
+
+        // Check what the held item would place, at the block vanilla would place it in
+        final ItemStack held = player.getItemInHand(hand);
+        if (!held.isEmpty() && (held.getItem() instanceof BlockItem || held.getItem() instanceof BucketItem)
+                && getHandler().cancelOperation(Operation.of(
+                        getUser(player),
+                        getPrecalculatedItemMap().getOrDefault(
+                                FabricListener.getId(held.getItem()), OperationType.BLOCK_PLACE),
+                        getPosition(getPlacementTarget(player, hand, held, blockHit), world)
+                ))) {
+            return InteractionResult.FAIL;
+        }
+        return InteractionResult.PASS;
+    }
+
+    // The block a right click with this item would change. Block items follow vanilla's
+    // own placement rules, including replaceable blocks such as grass or snow layers,
+    // which are replaced in place rather than built against. Buckets act on the block
+    // in front of the clicked face.
+    @NotNull
+    private BlockPos getPlacementTarget(@NotNull ServerPlayer player, @NotNull InteractionHand hand,
+                                        @NotNull ItemStack held, @NotNull BlockHitResult hit) {
+        if (held.getItem() instanceof BlockItem blockItem) {
+            final BlockPlaceContext context = new BlockPlaceContext(player, hand, held, hit);
+            final BlockPlaceContext adjusted = blockItem.updatePlacementContext(context);
+            return (adjusted != null ? adjusted : context).getClickedPos();
+        }
+        return hit.getBlockPos().relative(hit.getDirection());
     }
 
     @Nullable
-    private OperationType checkUseBlockEntity(@NotNull ServerPlayerEntity player, @NotNull World world,
+    private OperationType checkUseBlockEntity(@NotNull ServerPlayer player, @NotNull Level world,
                                               @Nullable BlockEntity blockEntity) {
         if (blockEntity == null) {
             return null;
         }
-        if (blockEntity instanceof InventoryProvider || blockEntity instanceof Inventory ||
+        if (blockEntity instanceof WorldlyContainer || blockEntity instanceof Container ||
                 blockEntity instanceof CampfireBlockEntity || blockEntity instanceof BeaconBlockEntity) {
             return OperationType.CONTAINER_OPEN;
         }
@@ -142,35 +164,35 @@ public interface FabricUseBlockListener extends FabricListener {
     }
 
     @NotNull
-    default ActionResult onEntityPhysicallyInteract(World world, BlockPos blockPos, BlockState state, Entity entity) {
+    default InteractionResult onEntityPhysicallyInteract(Level world, BlockPos blockPos, BlockState state, Entity entity) {
         // Check if the block was a pressure sensitive block
         if (!getChecker().isPressureSensitiveMaterial(FabricListener.getId(state.getBlock()))) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
         // Get the player source
-        final Optional<ServerPlayerEntity> playerSource = getPlayerSource(entity);
+        final Optional<ServerPlayer> playerSource = getPlayerSource(entity);
         if (playerSource.isEmpty() || playerSource.get().isSpectator()) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
         // Check if this is allowed
-        final ServerPlayerEntity player = playerSource.get();
+        final ServerPlayer player = playerSource.get();
         if (getHandler().cancelOperation(Operation.of(
                 getUser(player),
                 OperationType.REDSTONE_INTERACT,
                 getPosition(blockPos, world),
                 true
         ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
     @NotNull
-    default ActionResult onPlayerTakeLecternBook(World world, BlockPos blockPos, PlayerEntity playerEntity) {
-        if (!(playerEntity instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+    default InteractionResult onPlayerTakeLecternBook(Level world, BlockPos blockPos, Player playerEntity) {
+        if (!(playerEntity instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
 
         // Check if this is allowed
@@ -180,22 +202,22 @@ public interface FabricUseBlockListener extends FabricListener {
                 getPosition(blockPos, world),
                 true
         ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
     @NotNull
-    default ActionResult onProjectileHitBlock(BlockPos blockPos, World world, ProjectileEntity projectile,
+    default InteractionResult onProjectileHitBlock(BlockPos blockPos, Level world, Projectile projectile,
                                               @Nullable Entity shooter, @Nullable BlockPos dispensedFrom) {
         // Check players shooting stuff
-        final Optional<ServerPlayerEntity> playerShooter = getPlayerSource(shooter);
+        final Optional<ServerPlayer> playerShooter = getPlayerSource(shooter);
         if (playerShooter.isPresent()) {
             return getHandler().cancelOperation(Operation.of(
                     getUser(playerShooter.get()),
                     OperationType.REDSTONE_INTERACT,
                     getPosition(blockPos, world)
-            )) ? ActionResult.FAIL : ActionResult.PASS;
+            )) ? InteractionResult.FAIL : InteractionResult.PASS;
         }
 
         // Check dispenser hitting a block
@@ -205,14 +227,14 @@ public interface FabricUseBlockListener extends FabricListener {
                     dispenserPos.getWorld(),
                     getPosition(blockPos, world),
                     dispenserPos
-            ) ? ActionResult.FAIL : ActionResult.PASS;
+            ) ? InteractionResult.FAIL : InteractionResult.PASS;
         }
 
         // Prevent mobs from shooting projectiles to do stuff
         return getHandler().cancelOperation(Operation.of(
                 OperationType.MONSTER_DAMAGE_TERRAIN,
                 getPosition(blockPos, world)
-        )) ? ActionResult.FAIL : ActionResult.PASS;
+        )) ? InteractionResult.FAIL : InteractionResult.PASS;
     }
 
 }

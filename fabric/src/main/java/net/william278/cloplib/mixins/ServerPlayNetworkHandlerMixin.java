@@ -19,13 +19,13 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.network.packet.c2s.play.VehicleMoveC2SPacket;
-import net.minecraft.server.network.ServerPlayNetworkHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.phys.Vec3;
 import net.william278.cloplib.events.PlayerMovementEvents;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
@@ -35,70 +35,83 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(ServerPlayNetworkHandler.class)
+@Mixin(ServerGamePacketListenerImpl.class)
 public abstract class ServerPlayNetworkHandlerMixin {
 
     @Shadow
-    public ServerPlayerEntity player;
+    public ServerPlayer player;
 
     @Shadow
-    private double lastTickX;
+    private double firstGoodX;
     @Shadow
-    private double lastTickY;
+    private double firstGoodY;
     @Shadow
-    private double lastTickZ;
+    private double firstGoodZ;
 
     @Shadow
-    private double lastTickRiddenX;
+    private double vehicleFirstGoodX;
     @Shadow
-    private double lastTickRiddenY;
+    private double vehicleFirstGoodY;
     @Shadow
-    private double lastTickRiddenZ;
+    private double vehicleFirstGoodZ;
 
-    @Inject(method = "onPlayerMove", at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/server/network/ServerPlayerEntity;getBoundingBox()Lnet/minecraft/util/math/Box;"), cancellable = true)
-    private void onPlayerMoveMixin(PlayerMoveC2SPacket packet, CallbackInfo ci) {
-        if (!packet.changesPosition()) {
+    // 26.3: handleMovePlayer was refactored — the moved-too-quickly/bounding-box logic now lives in the
+    // new private handlePlayerPositionChange(DDDFFZZ). Anchor on its INVOKE call site in handleMovePlayer
+    // (single callsite, ordinal 0) instead of the old getBoundingBox INVOKE_ASSIGN.
+    //#if MC>=260300
+    //$$ @Inject(method = "handleMovePlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;handlePlayerPositionChange(DDDFFZZ)V"), cancellable = true)
+    //#else
+    @Inject(method = "handleMovePlayer", at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/server/level/ServerPlayer;getBoundingBox()Lnet/minecraft/world/phys/AABB;"), cancellable = true)
+    //#endif
+    private void onPlayerMoveMixin(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
+        if (!packet.hasPosition()) {
             return;
         }
 
         // Determine change in distance
-        final Vec3d from = new Vec3d(this.lastTickX, this.lastTickY, this.lastTickZ);
-        final Vec3d to = new Vec3d(packet.getX(from.getX()), packet.getY(from.getY()), packet.getZ(from.getZ()));
-        double delta = Math.pow(this.lastTickX - to.getX(), 2) +
-                       Math.pow(this.lastTickY - to.getY(), 2) +
-                       Math.pow(this.lastTickZ - to.getZ(), 2);
+        final Vec3 from = new Vec3(this.firstGoodX, this.firstGoodY, this.firstGoodZ);
+        final Vec3 to = new Vec3(packet.getX(from.x()), packet.getY(from.y()), packet.getZ(from.z()));
+        double delta = Math.pow(this.firstGoodX - to.x(), 2) +
+                       Math.pow(this.firstGoodY - to.y(), 2) +
+                       Math.pow(this.firstGoodZ - to.z(), 2);
 
         // Cancel the action
         if ((delta > 1f / 256) && !this.player.isImmobile()) {
-            final ActionResult result = PlayerMovementEvents.BEFORE_MOVE.invoker().move(
+            final InteractionResult result = PlayerMovementEvents.BEFORE_MOVE.invoker().move(
                     player, getServerWorld(player), from, to
             );
-            if (result == ActionResult.FAIL) {
-                player.setVelocity(Vec3d.ZERO);
+            if (result == InteractionResult.FAIL) {
+                player.setDeltaMovement(Vec3.ZERO);
                 ci.cancel();
             }
         }
     }
 
-    @Inject(method = "onVehicleMove", at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/server/world/ServerWorld;isSpaceEmpty(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/math/Box;)Z", ordinal = 0), cancellable = true)
-    private void onVehicleMoveMixin(VehicleMoveC2SPacket packet, CallbackInfo ci) {
+    @Inject(method = "handleMoveVehicle", at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/server/level/ServerLevel;noCollision(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;)Z", ordinal = 0), cancellable = true)
+    private void onVehicleMoveMixin(ServerboundMoveVehiclePacket packet, CallbackInfo ci) {
         // Determine change in distance
-        final Vec3d from = new Vec3d(this.lastTickRiddenX, this.lastTickRiddenY, this.lastTickRiddenZ);
-        //#if MC>=12104
-        final Vec3d to = packet.position();
+        final Vec3 from = new Vec3(this.vehicleFirstGoodX, this.vehicleFirstGoodY, this.vehicleFirstGoodZ);
+        // 26.3: ServerboundMoveVehiclePacket.position() -> movingTo().position() (PositionAndRotation).
+        // Main project compiles shared src raw: 26.3-only lines carry //$$ (commented raw, uncommented by preprocess).
+        //#if MC>=260300
+        //$$ final Vec3 to = packet.movingTo().position();
         //#else
-        //$$ final Vec3d to = new Vec3d(packet.getX(), packet.getY(), packet.getZ());
+        //#if MC>=12104
+        final Vec3 to = packet.position();
+        //#else
+        //$$ final Vec3 to = new Vec3(packet.getX(), packet.getY(), packet.getZ());
         //#endif
-        double delta = Math.pow(this.lastTickRiddenX - to.getX(), 2) +
-                       Math.pow(this.lastTickRiddenY - to.getY(), 2) +
-                       Math.pow(this.lastTickRiddenZ - to.getZ(), 2);
+        //#endif
+        double delta = Math.pow(this.vehicleFirstGoodX - to.x(), 2) +
+                       Math.pow(this.vehicleFirstGoodY - to.y(), 2) +
+                       Math.pow(this.vehicleFirstGoodZ - to.z(), 2);
 
         // Cancel the action
         if ((delta > 1f / 256)) {
-            final ActionResult result = PlayerMovementEvents.BEFORE_MOVE.invoker().move(
+            final InteractionResult result = PlayerMovementEvents.BEFORE_MOVE.invoker().move(
                     player, getServerWorld(player), from, to
             );
-            if (result == ActionResult.FAIL) {
+            if (result == InteractionResult.FAIL) {
                 ci.cancel();
             }
         }
@@ -106,9 +119,9 @@ public abstract class ServerPlayNetworkHandlerMixin {
 
     @Unique
     @NotNull
-    private ServerWorld getServerWorld(ServerPlayerEntity player) {
+    private ServerLevel getServerWorld(ServerPlayer player) {
 //#if MC>=12107
-        return player.getWorld();
+        return player.level();
 //#else
 //$$    return player.getServerWorld();
 //#endif

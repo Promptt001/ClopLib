@@ -19,17 +19,17 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.block.DispenserBlock;
-import net.minecraft.block.dispenser.BoatDispenserBehavior;
-import net.minecraft.block.dispenser.DispenserBehavior;
-import net.minecraft.block.dispenser.ItemDispenserBehavior;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.core.dispenser.BoatDispenseItemBehavior;
+import net.minecraft.core.dispenser.DispenseItemBehavior;
+import net.minecraft.core.dispenser.DefaultDispenseItemBehavior;
 //#if MC>=12104
-import net.minecraft.block.dispenser.MinecartDispenserBehavior;
+import net.minecraft.core.dispenser.MinecartDispenseItemBehavior;
 //#endif
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPointer;
-import net.minecraft.util.math.Direction;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.dispenser.BlockSource;
+import net.minecraft.core.Direction;
 import net.william278.cloplib.events.DispenserEvents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -38,22 +38,22 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 //#if MC>=12104
-@Mixin(value = {BoatDispenserBehavior.class, MinecartDispenserBehavior.class})
+@Mixin(value = {BoatDispenseItemBehavior.class, MinecartDispenseItemBehavior.class})
 //#else
-//$$ @Mixin(value = BoatDispenserBehavior.class, targets = "net/minecraft/item/MinecartItem$1")
+//$$ @Mixin(value = BoatDispenseItemBehavior.class, targets = "net/minecraft/item/MinecartItem$1")
 //#endif
 public abstract class VehiclePlaceDispenserBehaviourMixin {
 
     @Unique
-    private static final DispenserBehavior CLOPLIB_VEHICLE_FALLBACK_BEHAVIOUR = new ItemDispenserBehavior();
+    private static final DispenseItemBehavior CLOPLIB_VEHICLE_FALLBACK_BEHAVIOUR = new DefaultDispenseItemBehavior();
 
-    @Inject(method = "dispenseSilently", at = @At("HEAD"), cancellable = true)
-    private void dispenseSilentlyMixin(BlockPointer pointer, ItemStack stack, CallbackInfoReturnable<ItemStack> cir) {
-        final Direction direction = pointer.state().get(DispenserBlock.FACING);
-        final ActionResult result = DispenserEvents.BEFORE_PLACE.invoker().place(
-                pointer.world(), pointer.pos(), pointer.pos().offset(direction)
+    @Inject(method = "execute", at = @At("HEAD"), cancellable = true)
+    private void dispenseSilentlyMixin(BlockSource pointer, ItemStack stack, CallbackInfoReturnable<ItemStack> cir) {
+        final Direction direction = pointer.state().getValue(DispenserBlock.FACING);
+        final InteractionResult result = DispenserEvents.BEFORE_PLACE.invoker().place(
+                pointer.level(), pointer.pos(), pointer.pos().relative(direction)
         );
-        if (result == ActionResult.FAIL) {
+        if (result == InteractionResult.FAIL) {
             cir.setReturnValue(CLOPLIB_VEHICLE_FALLBACK_BEHAVIOUR.dispense(pointer, stack));
             cir.cancel();
         }

@@ -19,13 +19,13 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.LecternBlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.screen.PropertyDelegate;
-import net.minecraft.screen.ScreenHandler;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.LecternBlockEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.william278.cloplib.util.TrackedLecternScreenHandler;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -39,15 +39,15 @@ public abstract class LecternBlockEntityMixin {
 
     @Shadow
     @Final
-    private Inventory inventory;
+    private Container bookAccess;
 
     @Shadow
     @Final
-    private PropertyDelegate propertyDelegate;
+    private ContainerData dataAccess;
 
     @Inject(method = "createMenu", at = @At(value = "HEAD"), cancellable = true)
-    private void createMenuMixin(int i, PlayerInventory playerInventory, PlayerEntity playerEntity, CallbackInfoReturnable<ScreenHandler> cir) {
-        cir.setReturnValue(new TrackedLecternScreenHandler(i, this.inventory, this.propertyDelegate, ((BlockEntity) (Object) this)));
+    private void createMenuMixin(int i, Inventory playerInventory, Player playerEntity, CallbackInfoReturnable<AbstractContainerMenu> cir) {
+        cir.setReturnValue(new TrackedLecternScreenHandler(i, this.bookAccess, this.dataAccess, ((BlockEntity) (Object) this)));
         cir.cancel();
     }
 

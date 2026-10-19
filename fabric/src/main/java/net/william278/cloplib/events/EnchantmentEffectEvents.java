@@ -21,10 +21,10 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public final class EnchantmentEffectEvents {
@@ -34,13 +34,13 @@ public final class EnchantmentEffectEvents {
             BeforeBlockUpdateCallback.class,
             (callbacks) -> (entity, world, pos) -> {
                 for (BeforeBlockUpdateCallback listener : callbacks) {
-                    final ActionResult result = listener.blockUpdate(entity, world, pos);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.blockUpdate(entity, world, pos);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -48,7 +48,7 @@ public final class EnchantmentEffectEvents {
     public interface BeforeBlockUpdateCallback {
 
         @NotNull
-        ActionResult blockUpdate(Entity entity, World world, BlockPos pos);
+        InteractionResult blockUpdate(Entity entity, Level world, BlockPos pos);
 
     }
 

@@ -1,11 +1,11 @@
 import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 plugins {
-    id 'org.cadixdev.licenser' version '0.6.1' apply false
-    id 'dev.architectury.loom' version '1.9-SNAPSHOT' apply false
+    id 'com.gradleup.shadow' version '9.0.0-beta17'
+    id 'gg.essential.loom' version '1.15.50' apply false
     id 'gg.essential.multi-version.root' apply false
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'org.ajoberstar.grgit' version '5.3.2'
+    id 'org.ajoberstar.grgit' version '5.3.3'
     id 'maven-publish'
     id 'java'
 }
@@ -13,7 +13,7 @@ plugins {
 group 'net.william278'
 version "$ext.library_version${versionMetadata()}"
 description "$ext.library_description"
-defaultTasks 'licenseFormat', 'build'
+defaultTasks 'build'
 
 ext {
     set 'version', version.toString()
@@ -56,8 +56,7 @@ allprojects {
         return
     }
 
-    apply plugin: 'com.github.johnrengelman.shadow'
-    apply plugin: 'org.cadixdev.licenser'
+    apply plugin: 'com.gradleup.shadow'
     apply plugin: 'java'
 
     compileJava.options.encoding = 'UTF-8'
@@ -89,12 +88,6 @@ allprojects {
         useJUnitPlatform()
     }
 
-    license {
-        header = rootProject.file('HEADER')
-        include '**/*.java'
-        newLine = true
-    }
-
     processResources {
         filesMatching(['**/*.json', '**/*.yml']) {
             filter ReplaceTokens as Class, beginToken: '${', endToken: '}',
@@ -108,17 +101,25 @@ subprojects {
         return
     }
 
-    if (project.parent?.name?.equals('fabric')) {
-        apply plugin: 'dev.architectury.loom'
-    }
-
     version rootProject.version
+    // 26.x fabric nodes run on the unobfuscated (mojmap) runtime, which needs Java 25
+    if (project.parent?.name?.equals('fabric')) {
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(25)
+            }
+        }
+        compileJava.options.release.set 25
+        version += "+mc.${project.name}"
+    }
     def name = "$rootProject.name"
     if (rootProject != project.parent) {
         name += "-${project.parent.name.capitalize()}"
     }
     name += "-${project.name.capitalize()}"
-    archivesBaseName = name
+    base {
+        archivesName = name
+    }
 
     jar {
         from '../LICENSE'
@@ -170,14 +171,19 @@ subprojects {
         }
 
         if (project.parent?.name?.equals('fabric')) {
-            publications {
-                "mavenJavaFabric_${project.name.replace('.', '_')}"(MavenPublication) {
-                    groupId = 'net.william278.cloplib'
-                    artifactId = 'cloplib-fabric'
-                    version = "$rootProject.version+$project.name"
-                    artifact remapJar
-                    artifact sourcesJar
-                    artifact javadocJar
+            afterEvaluate {
+                def publishedJarTask = tasks.named(project.ext.fabricRuntimeJarTaskName as String)
+                publishing {
+                    publications {
+                        "mavenJavaFabric_${project.name.replace('.', '_')}"(MavenPublication) {
+                            groupId = 'net.william278.cloplib'
+                            artifactId = 'cloplib-fabric'
+                            version = "$rootProject.version+$project.name"
+                            artifact publishedJarTask
+                            artifact sourcesJar
+                            artifact javadocJar
+                        }
+                    }
                 }
             }
         }

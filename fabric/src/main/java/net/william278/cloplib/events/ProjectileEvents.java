@@ -21,11 +21,11 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,13 +36,13 @@ public final class ProjectileEvents {
             BeforeEntityHit.class,
             (callbacks) -> (entity, projectile, shooter, dispensedFrom) -> {
                 for (BeforeEntityHit listener : callbacks) {
-                    final ActionResult result = listener.entityHit(entity, projectile, shooter, dispensedFrom);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.entityHit(entity, projectile, shooter, dispensedFrom);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -51,13 +51,13 @@ public final class ProjectileEvents {
             BeforeBlockHit.class,
             (callbacks) -> (block, world, projectile, shooter, dispensedFrom) -> {
                 for (BeforeBlockHit listener : callbacks) {
-                    final ActionResult result = listener.blockHit(block, world, projectile, shooter, dispensedFrom);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.blockHit(block, world, projectile, shooter, dispensedFrom);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -65,7 +65,7 @@ public final class ProjectileEvents {
     public interface BeforeEntityHit {
 
         @NotNull
-        ActionResult entityHit(Entity hitEntity, ProjectileEntity projectile,
+        InteractionResult entityHit(Entity hitEntity, Projectile projectile,
                                @Nullable Entity shooter, @Nullable BlockPos dispensedFrom);
 
     }
@@ -74,7 +74,7 @@ public final class ProjectileEvents {
     public interface BeforeBlockHit {
 
         @NotNull
-        ActionResult blockHit(BlockPos hitBlock, World world, ProjectileEntity projectile,
+        InteractionResult blockHit(BlockPos hitBlock, Level world, Projectile projectile,
                               @Nullable Entity shooter, @Nullable BlockPos dispensedFrom);
 
 

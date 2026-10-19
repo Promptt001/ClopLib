@@ -19,13 +19,13 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.block.FireBlock;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
+import net.minecraft.world.level.block.FireBlock;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
 import net.william278.cloplib.events.FireTickEvents;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -40,23 +40,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class FireBlockMixin {
 
     @Shadow @Final
-    public static IntProperty AGE;
+    public static IntegerProperty AGE;
 
     // Prevent fire spread contextually
-    @Inject(method = "trySpreadingFire", at = @At("HEAD"), cancellable = true)
-    private void trySpreadingFireMixin(World world, BlockPos pos, int spreadFactor, Random random,
+    @Inject(method = "checkBurnOut", at = @At("HEAD"), cancellable = true)
+    private void trySpreadingFireMixin(Level world, BlockPos pos, int spreadFactor, RandomSource random,
                                        int currentAge, CallbackInfo cir) {
-        final ActionResult result = FireTickEvents.BEFORE_SPREAD.invoker().fireSpread(world, pos);
-        if (result == ActionResult.FAIL) {
+        final InteractionResult result = FireTickEvents.BEFORE_SPREAD.invoker().fireSpread(world, pos);
+        if (result == InteractionResult.FAIL) {
             cir.cancel();
         }
     }
 
     // Prevent fire spread contextually
-    @Inject(method = "getBurnChance(Lnet/minecraft/world/WorldView;Lnet/minecraft/util/math/BlockPos;)I", at = @At("HEAD"), cancellable = true)
-    private void getBurnChanceMixin(WorldView world, BlockPos pos, CallbackInfoReturnable<Integer> cir) {
-        final ActionResult result = FireTickEvents.BEFORE_BURN.invoker().fireBurn((World) world, pos);
-        if (result == ActionResult.FAIL) {
+    @Inject(method = "getIgniteOdds(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;)I", at = @At("HEAD"), cancellable = true)
+    private void getBurnChanceMixin(LevelReader world, BlockPos pos, CallbackInfoReturnable<Integer> cir) {
+        final InteractionResult result = FireTickEvents.BEFORE_BURN.invoker().fireBurn((Level) world, pos);
+        if (result == InteractionResult.FAIL) {
             cir.setReturnValue(0);
             cir.cancel();
         }

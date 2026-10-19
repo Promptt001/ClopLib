@@ -21,10 +21,10 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public final class PlayerMovementEvents {
@@ -34,13 +34,13 @@ public final class PlayerMovementEvents {
             BeforeMoveCallback.class,
             (callbacks) -> (player, world, from, to) -> {
                 for (BeforeMoveCallback listener : callbacks) {
-                    final ActionResult result = listener.move(player, world, from, to);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.move(player, world, from, to);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -48,7 +48,7 @@ public final class PlayerMovementEvents {
     public interface BeforeMoveCallback {
 
         @NotNull
-        ActionResult move(ServerPlayerEntity player, World world, Vec3d from, Vec3d to);
+        InteractionResult move(ServerPlayer player, Level world, Vec3 from, Vec3 to);
 
     }
 

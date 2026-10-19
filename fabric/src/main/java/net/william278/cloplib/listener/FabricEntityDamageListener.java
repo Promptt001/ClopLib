@@ -19,21 +19,21 @@
 
 package net.william278.cloplib.listener;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.decoration.AbstractDecorationEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.entity.vehicle.VehicleEntity;
-import net.minecraft.entity.vehicle.VehicleInventory;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
-import net.minecraft.world.explosion.Explosion;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.HangingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.vehicle.VehicleEntity;
+import net.minecraft.world.entity.vehicle.ContainerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.Explosion;
 import net.william278.cloplib.operation.Operation;
 import net.william278.cloplib.operation.OperationPosition;
 import net.william278.cloplib.operation.OperationType;
@@ -45,51 +45,51 @@ import java.util.Optional;
 public interface FabricEntityDamageListener extends FabricListener {
 
     @NotNull
-    default ActionResult onPlayerAttackEntity(PlayerEntity playerEntity, World world, Hand hand, Entity entity,
+    default InteractionResult onPlayerAttackEntity(Player playerEntity, Level world, InteractionHand hand, Entity entity,
                                               @Nullable EntityHitResult ignoredEntityHitResult) {
         return handlePlayerDamageEntity(playerEntity, entity);
     }
 
     @NotNull
-    default ActionResult onProjectileHitEntity(Entity hit, ProjectileEntity projectile,
+    default InteractionResult onProjectileHitEntity(Entity hit, Projectile projectile,
                                                @Nullable Entity shooter, @Nullable BlockPos dispensedFrom) {
-        final Optional<ServerPlayerEntity> playerShooter = getPlayerSource(shooter);
+        final Optional<ServerPlayer> playerShooter = getPlayerSource(shooter);
         if (playerShooter.isPresent()) {
             return handlePlayerDamageEntity(playerShooter.get(), hit);
         }
 
         // Handle dispensers
         if (dispensedFrom != null) {
-            final OperationPosition dispenserPos = getPosition(dispensedFrom, hit.getWorld());
+            final OperationPosition dispenserPos = getPosition(dispensedFrom, hit.level());
             return getHandler().cancelNature(
                     dispenserPos.getWorld(),
-                    getPosition(hit.getPos(), hit.getWorld(), hit.getYaw(), hit.getPitch()),
+                    getPosition(hit.position(), hit.level(), hit.getYRot(), hit.getXRot()),
                     dispenserPos
-            ) ? ActionResult.FAIL : ActionResult.PASS;
+            ) ? InteractionResult.FAIL : InteractionResult.PASS;
         }
 
         // Ignore other projectile damage sources (e.g. monsters hitting other monsters, etc.)
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
     @NotNull
-    default ActionResult onExplosionDamageEntity(Explosion explosion, Entity entity) {
-        if (entity == explosion.getCausingEntity()) {
-            return ActionResult.PASS;
+    default InteractionResult onExplosionDamageEntity(Explosion explosion, Entity entity) {
+        if (entity == explosion.getIndirectSourceEntity()) {
+            return InteractionResult.PASS;
         }
 
         // Handle decorative blocks (hanging items)
-        final OperationPosition entityPos = getPosition(entity.getPos(), entity.getWorld(), entity.getYaw(), entity.getPitch());
-        if ((entity instanceof AbstractDecorationEntity || entity instanceof ArmorStandEntity) &&
+        final OperationPosition entityPos = getPosition(entity.position(), entity.level(), entity.getYRot(), entity.getXRot());
+        if ((entity instanceof HangingEntity || entity instanceof ArmorStand) &&
                 getHandler().cancelOperation(Operation.of(
                         OperationType.EXPLOSION_DAMAGE_TERRAIN,
                         entityPos
                 ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
 
         // Handle player triggered explosions
-        final Optional<ServerPlayerEntity> player = getPlayerSource(explosion.getCausingEntity());
+        final Optional<ServerPlayer> player = getPlayerSource(explosion.getIndirectSourceEntity());
         if (player.isPresent() && !player.get().isSpectator()) {
             return handlePlayerDamageEntity(player.get(), entity);
         }
@@ -99,29 +99,29 @@ public interface FabricEntityDamageListener extends FabricListener {
                 OperationType.EXPLOSION_DAMAGE_ENTITY,
                 entityPos
         ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
     @NotNull
-    private ActionResult handlePlayerDamageEntity(PlayerEntity attackerEntity, Entity damaged) {
-        if (!(attackerEntity instanceof ServerPlayerEntity attacker) || attacker.isSpectator()) {
-            return ActionResult.PASS;
+    private InteractionResult handlePlayerDamageEntity(Player attackerEntity, Entity damaged) {
+        if (!(attackerEntity instanceof ServerPlayer attacker) || attacker.isSpectator()) {
+            return InteractionResult.PASS;
         }
 
         // Handle PvP between two players
         final OperationPosition damagedPos = getPosition(
-                damaged.getPos(), damaged.getWorld(),
-                damaged.getYaw(), damaged.getPitch()
+                damaged.position(), damaged.level(),
+                damaged.getYRot(), damaged.getXRot()
         );
-        if (damaged instanceof ServerPlayerEntity playerVictim) {
+        if (damaged instanceof ServerPlayer playerVictim) {
             return getHandler().cancelOperation(Operation.of(
                     getUser(attacker),
                     getUser(playerVictim),
                     OperationType.PLAYER_DAMAGE_PLAYER,
                     damagedPos
-            )) ? ActionResult.FAIL : ActionResult.PASS;
+            )) ? InteractionResult.FAIL : InteractionResult.PASS;
         }
 
         // Handle based on hit entity type
@@ -129,7 +129,7 @@ public interface FabricEntityDamageListener extends FabricListener {
                 getUser(attacker),
                 getPlayerDamageType(damaged),
                 damagedPos
-        )) ? ActionResult.FAIL : ActionResult.PASS;
+        )) ? InteractionResult.FAIL : InteractionResult.PASS;
     }
 
     @NotNull
@@ -138,8 +138,8 @@ public interface FabricEntityDamageListener extends FabricListener {
         if (isMonster(entity)) {
             type = OperationType.PLAYER_DAMAGE_MONSTER;
         } else if (entity instanceof VehicleEntity vehicle) {
-            type = vehicle instanceof VehicleInventory ? OperationType.BLOCK_BREAK : OperationType.BREAK_VEHICLE;
-        } else if (entity instanceof AbstractDecorationEntity) {
+            type = vehicle instanceof ContainerEntity ? OperationType.BLOCK_BREAK : OperationType.BREAK_VEHICLE;
+        } else if (entity instanceof HangingEntity) {
             type = OperationType.BREAK_HANGING_ENTITY;
         } else if (!(entity instanceof LivingEntity)) {
             type = OperationType.BLOCK_BREAK;

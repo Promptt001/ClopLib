@@ -19,39 +19,39 @@
 
 package net.william278.cloplib.util;
 
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.screen.LecternScreenHandler;
-import net.minecraft.screen.PropertyDelegate;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.LecternMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import net.william278.cloplib.events.LecternEvents;
 import org.jetbrains.annotations.NotNull;
 
-public class TrackedLecternScreenHandler extends LecternScreenHandler {
+public class TrackedLecternScreenHandler extends LecternMenu {
 
-    private final World lecternWorld;
+    private final Level lecternWorld;
     private final BlockPos lecternPos;
 
-    public TrackedLecternScreenHandler(int syncId, @NotNull Inventory inventory,
-                                       @NotNull PropertyDelegate propertyDelegate,
+    public TrackedLecternScreenHandler(int syncId, @NotNull Container inventory,
+                                       @NotNull ContainerData propertyDelegate,
                                        @NotNull BlockEntity blockEntity) {
         super(syncId, inventory, propertyDelegate);
-        this.lecternWorld = blockEntity.getWorld();
-        this.lecternPos = blockEntity.getPos();
+        this.lecternWorld = blockEntity.getLevel();
+        this.lecternPos = blockEntity.getBlockPos();
     }
 
     @Override
-    public boolean onButtonClick(PlayerEntity player, int id) {
-        if (id == TAKE_BOOK_BUTTON_ID) {
-            final ActionResult result = LecternEvents.BEFORE_BOOK_TAKEN.invoker().bookTaken(lecternWorld, lecternPos, player);
-            if (result == ActionResult.FAIL) {
+    public boolean clickMenuButton(Player player, int id) {
+        if (id == BUTTON_TAKE_BOOK) {
+            final InteractionResult result = LecternEvents.BEFORE_BOOK_TAKEN.invoker().bookTaken(lecternWorld, lecternPos, player);
+            if (result == InteractionResult.FAIL) {
                 return false;
             }
         }
-        return super.onButtonClick(player, id);
+        return super.clickMenuButton(player, id);
     }
 
 }

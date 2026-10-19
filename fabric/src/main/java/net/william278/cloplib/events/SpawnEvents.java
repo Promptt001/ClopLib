@@ -21,10 +21,10 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.util.ActionResult;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public final class SpawnEvents {
@@ -34,13 +34,13 @@ public final class SpawnEvents {
             BeforeMobSpawn.class,
             (callbacks) -> (world, entity, reason) -> {
                 for (BeforeMobSpawn listener : callbacks) {
-                    final ActionResult result = listener.spawn(world, entity, reason);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.spawn(world, entity, reason);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -48,7 +48,7 @@ public final class SpawnEvents {
     public interface BeforeMobSpawn {
 
         @NotNull
-        ActionResult spawn(World world, Entity entity, SpawnReason reason);
+        InteractionResult spawn(Level world, Entity entity, EntitySpawnReason reason);
 
     }
 }

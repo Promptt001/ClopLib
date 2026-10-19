@@ -19,26 +19,26 @@
 
 package net.william278.cloplib.listener;
 
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public interface FabricMoveListener extends FabricListener {
 
     @NotNull
-    default ActionResult onPlayerMove(ServerPlayerEntity player, World world, Vec3d from, Vec3d to) {
+    default InteractionResult onPlayerMove(ServerPlayer player, Level world, Vec3 from, Vec3 to) {
         if (from.equals(to)) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
         // Handle cancelling moving, if needed
         return getHandler().cancelMovement(
                 getUser(player),
-                getPosition(from, world, player.getYaw(), player.getPitch()),
-                getPosition(to, world, player.getYaw(), player.getPitch())
-        ) ? ActionResult.FAIL : ActionResult.PASS;
+                getPosition(from, world, player.getYRot(), player.getXRot()),
+                getPosition(to, world, player.getYRot(), player.getXRot())
+        ) ? InteractionResult.FAIL : InteractionResult.PASS;
     }
 
 }

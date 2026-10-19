@@ -25,13 +25,14 @@ import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.player.*;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.block.Block;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.resource.LifecycledResourceManager;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.server.packs.resources.CloseableResourceManager;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import net.william278.cloplib.events.*;
 import net.william278.cloplib.handler.Handler;
 import net.william278.cloplib.handler.SpecialTypeChecker;
@@ -39,6 +40,7 @@ import net.william278.cloplib.handler.TypeChecker;
 import net.william278.cloplib.operation.OperationPosition;
 import net.william278.cloplib.operation.OperationType;
 import net.william278.cloplib.operation.OperationUser;
+import net.william278.cloplib.util.ClientSide;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +62,7 @@ public abstract class FabricOperationListener implements OperationListener, Fabr
         FabricUseItemListener, FabricUseBlockListener, FabricUseEntityListener, FabricEntityDamageListener,
         FabricEntityListener, FabricBlockMoveListener, FabricFireListener, FabricMoveListener {
 
-    public static final Identifier CLOPLIB_LISTENERS = Identifier.of("cloplib", "listeners");
+    public static final Identifier CLOPLIB_LISTENERS = Identifier.fromNamespaceAndPath("cloplib", "listeners");
 
     private final Handler handler;
     private final TypeChecker checker;
@@ -94,29 +96,63 @@ public abstract class FabricOperationListener implements OperationListener, Fabr
     }
 
     private void registerCallbacks() {
-        // Register implemented callback event handlers
-        PlayerBlockBreakEvents.BEFORE.register(this::onPlayerBreakBlock);
-        AttackBlockCallback.EVENT.register(this::onPlayerStartBreakBlock);
+        // Fabric fires the interaction callbacks on the logical client as well as on the
+        // server. Protection decisions are made on the server only; on the client every
+        // callback passes, so the server stays the single source of truth and the client
+        // never touches server-side state.
+        PlayerBlockBreakEvents.BEFORE.register(this::onPlayerBreakBlock); // Server-side event only
+        AttackBlockCallback.EVENT.register((player, level, hand, pos, direction) ->
+                level.isClientSide() ? InteractionResult.PASS
+                        : onPlayerStartBreakBlock(player, level, hand, pos, direction));
         UseBlockCallback.EVENT.addPhaseOrdering(CLOPLIB_LISTENERS, Event.DEFAULT_PHASE); // Prevents weirdness
-        UseBlockCallback.EVENT.register(CLOPLIB_LISTENERS, this::onPlayerUseBlock);
-        UseEntityCallback.EVENT.register(this::onPlayerUseEntity);
-        AttackEntityCallback.EVENT.register(this::onPlayerAttackEntity);
-        UseItemCallback.EVENT.register(this::onPlayerUseItem); // Registered last
-        LecternEvents.BEFORE_BOOK_TAKEN.register(this::onPlayerTakeLecternBook);
-        PressureBlockEvents.BEFORE_COLLISION.register(this::onEntityPhysicallyInteract);
-        ProjectileEvents.BEFORE_BLOCK_HIT.register(this::onProjectileHitBlock);
-        ProjectileEvents.BEFORE_ENTITY_HIT.register(this::onProjectileHitEntity);
-        DispenserEvents.BEFORE_PLACE.register(this::onDispenserPlace);
-        FluidEvents.BEFORE_FLOW.register(this::onBlockFromTo);
-        PistonEvents.BEFORE_ACTUATION.register(this::onPistonActuate);
-        RaidEvents.BEFORE_START.register(this::onRaidTriggered);
-        FireTickEvents.BEFORE_BURN.register(this::onBlockBurn);
-        FireTickEvents.BEFORE_SPREAD.register(this::onFireSpread);
-        EnchantmentEffectEvents.BEFORE_BLOCK_UPDATE.register(this::onPlayerFrostWalker);
-        SpawnEvents.BEFORE_MOB_SPAWN.register(this::onCreatureSpawn);
-        ExplosionEvents.BEFORE_BLOCKS_BROKEN.register(this::onExplosionBreakBlocks);
-        ExplosionEvents.BEFORE_DAMAGE_ENTITY.register(this::onExplosionDamageEntity);
-        PlayerMovementEvents.BEFORE_MOVE.register(this::onPlayerMove);
+        UseBlockCallback.EVENT.register(CLOPLIB_LISTENERS, (player, level, hand, hit) ->
+                level.isClientSide() ? InteractionResult.PASS : onPlayerUseBlock(player, level, hand, hit));
+        UseEntityCallback.EVENT.register((player, level, hand, entity, hit) ->
+                level.isClientSide() ? InteractionResult.PASS
+                        : onPlayerUseEntity(player, level, hand, entity, hit));
+        AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) ->
+                level.isClientSide() ? InteractionResult.PASS
+                        : onPlayerAttackEntity(player, level, hand, entity, hit));
+        UseItemCallback.EVENT.register((player, level, hand) ->
+                level.isClientSide() ? InteractionResult.PASS : onPlayerUseItem(player, level, hand)); // Registered last
+
+        // Events raised by this library's own mixins: the mixins skip the client (see
+        // ClientSide.skip), and the listeners check again so a future mixin cannot
+        // forget it.
+        LecternEvents.BEFORE_BOOK_TAKEN.register((level, pos, player) ->
+                level.isClientSide() ? InteractionResult.PASS : onPlayerTakeLecternBook(level, pos, player));
+        PressureBlockEvents.BEFORE_COLLISION.register((level, pos, state, entity) ->
+                level.isClientSide() ? InteractionResult.PASS
+                        : onEntityPhysicallyInteract(level, pos, state, entity));
+        ProjectileEvents.BEFORE_BLOCK_HIT.register((pos, level, projectile, shooter, dispensedFrom) ->
+                level.isClientSide() ? InteractionResult.PASS
+                        : onProjectileHitBlock(pos, level, projectile, shooter, dispensedFrom));
+        ProjectileEvents.BEFORE_ENTITY_HIT.register((entity, projectile, shooter, dispensedFrom) ->
+                ClientSide.skip(entity.level()) ? InteractionResult.PASS
+                        : onProjectileHitEntity(entity, projectile, shooter, dispensedFrom));
+        DispenserEvents.BEFORE_PLACE.register((level, dispenser, placedPos) ->
+                level.isClientSide() ? InteractionResult.PASS : onDispenserPlace(level, dispenser, placedPos));
+        FluidEvents.BEFORE_FLOW.register((level, from, to) ->
+                level.isClientSide() ? InteractionResult.PASS : onBlockFromTo(level, from, to));
+        PistonEvents.BEFORE_ACTUATION.register((level, pistonPos, pistonDirection, affectedBlocks) ->
+                level.isClientSide() ? InteractionResult.PASS
+                        : onPistonActuate(level, pistonPos, pistonDirection, affectedBlocks));
+        RaidEvents.BEFORE_START.register((level, pos, player) ->
+                level.isClientSide() ? InteractionResult.PASS : onRaidTriggered(level, pos, player));
+        FireTickEvents.BEFORE_BURN.register((level, pos) ->
+                level.isClientSide() ? InteractionResult.PASS : onBlockBurn(level, pos));
+        FireTickEvents.BEFORE_SPREAD.register((level, pos) ->
+                level.isClientSide() ? InteractionResult.PASS : onFireSpread(level, pos));
+        EnchantmentEffectEvents.BEFORE_BLOCK_UPDATE.register((entity, level, pos) ->
+                level.isClientSide() ? InteractionResult.PASS : onPlayerFrostWalker(entity, level, pos));
+        SpawnEvents.BEFORE_MOB_SPAWN.register((level, entity, reason) ->
+                level.isClientSide() ? InteractionResult.PASS : onCreatureSpawn(level, entity, reason));
+        ExplosionEvents.BEFORE_BLOCKS_BROKEN.register((explosion, blocks) ->
+                ClientSide.skip(explosion.level()) ? blocks : onExplosionBreakBlocks(explosion, blocks));
+        ExplosionEvents.BEFORE_DAMAGE_ENTITY.register((explosion, entity) ->
+                ClientSide.skip(explosion.level()) ? InteractionResult.PASS
+                        : onExplosionDamageEntity(explosion, entity));
+        PlayerMovementEvents.BEFORE_MOVE.register(this::onPlayerMove); // ServerPlayer only
 
         // Register handlers for precalculating data
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
@@ -129,7 +165,7 @@ public abstract class FabricOperationListener implements OperationListener, Fabr
     }
 
     // Recalculate block operation map when the data pack is reloaded
-    private void onDataReloaded(MinecraftServer server, LifecycledResourceManager manager, boolean b) {
+    private void onDataReloaded(MinecraftServer server, CloseableResourceManager manager, boolean b) {
         this.precalculateMaps();
     }
 
@@ -164,18 +200,18 @@ public abstract class FabricOperationListener implements OperationListener, Fabr
      * @since 2.0
      */
     @NotNull
-    public abstract OperationPosition getPosition(@NotNull Vec3d pos, @NotNull net.minecraft.world.World world,
+    public abstract OperationPosition getPosition(@NotNull Vec3 pos, @NotNull net.minecraft.world.level.Level world,
                                                   float yaw, float pitch);
 
     /**
-     * Returns the {@link OperationUser} of a {@link PlayerEntity}
+     * Returns the {@link OperationUser} of a {@link Player}
      *
      * @param player the player
      * @return the OperationUser of the player
      * @since 2.0
      */
     @NotNull
-    public abstract OperationUser getUser(@NotNull PlayerEntity player);
+    public abstract OperationUser getUser(@NotNull Player player);
 
     /**
      * Set the callback for when a player inspects a block while holding something

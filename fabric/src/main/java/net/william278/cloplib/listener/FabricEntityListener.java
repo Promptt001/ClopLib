@@ -20,12 +20,12 @@
 package net.william278.cloplib.listener;
 
 import com.google.common.collect.Lists;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
-import net.minecraft.world.explosion.Explosion;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.Explosion;
 import net.william278.cloplib.operation.Operation;
 import net.william278.cloplib.operation.OperationType;
 import org.jetbrains.annotations.NotNull;
@@ -37,23 +37,23 @@ import java.util.Set;
 public interface FabricEntityListener extends FabricListener {
 
     // List of spawn reasons that ClopLib will handle. Don't handle skeleton traps unlike bukkit
-    Set<SpawnReason> CHECKED_SPAWN_REASONS = Set.of(
-            SpawnReason.NATURAL,
-            SpawnReason.REINFORCEMENT,
-            SpawnReason.PATROL
+    Set<EntitySpawnReason> CHECKED_SPAWN_REASONS = Set.of(
+            EntitySpawnReason.NATURAL,
+            EntitySpawnReason.REINFORCEMENT,
+            EntitySpawnReason.PATROL
     );
 
     @NotNull
-    default ActionResult onCreatureSpawn(World world, Entity entity, SpawnReason spawnReason) {
+    default InteractionResult onCreatureSpawn(Level world, Entity entity, EntitySpawnReason spawnReason) {
         if (!CHECKED_SPAWN_REASONS.contains(spawnReason)) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
         // Cancel mob spawning
         return getHandler().cancelOperation(Operation.of(
                 isMonster(entity) ? OperationType.MONSTER_SPAWN : OperationType.PASSIVE_MOB_SPAWN,
-                getPosition(entity.getPos(), world, entity.getYaw(), entity.getPitch()))
-        ) ? ActionResult.FAIL : ActionResult.PASS;
+                getPosition(entity.position(), world, entity.getYRot(), entity.getXRot()))
+        ) ? InteractionResult.FAIL : InteractionResult.PASS;
     }
 
     @NotNull
@@ -61,11 +61,11 @@ public interface FabricEntityListener extends FabricListener {
         final List<BlockPos> newList = Lists.newArrayList();
         for (BlockPos pos : blockPos) {
             if (!getHandler().cancelOperation(Operation.of(
-                    getPlayerSource(explosion.getCausingEntity()).map(this::getUser).orElse(null),
-                    isMonster(explosion.getCausingEntity())
+                    getPlayerSource(explosion.getIndirectSourceEntity()).map(this::getUser).orElse(null),
+                    isMonster(explosion.getIndirectSourceEntity())
                             ? OperationType.MONSTER_DAMAGE_TERRAIN : OperationType.EXPLOSION_DAMAGE_TERRAIN,
                     //#if MC>=12104
-                    getPosition(pos, explosion.getWorld())
+                    getPosition(pos, explosion.level())
                     //#else
                     //$$ getPosition(pos, explosion.world)
                     //#endif

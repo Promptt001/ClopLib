@@ -19,25 +19,27 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.ActionResult;
-import net.minecraft.world.SpawnHelper;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.NaturalSpawner;
 import net.william278.cloplib.events.SpawnEvents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(SpawnHelper.class)
+@Mixin(NaturalSpawner.class)
 public abstract class SpawnHelperMixin {
 
-    @Inject(method = "isValidSpawn", at = @At("HEAD"), cancellable = true)
-    private static void isValidSpawnMixin(ServerWorld world, MobEntity entity, double squaredDistance,
+    // Checks whether a position is a valid spawn spot for a specific mob, matching
+    // the mob's position validation used by natural spawning.
+    @Inject(method = "isValidPositionForMob", at = @At("HEAD"), cancellable = true)
+    private static void isValidSpawnMixin(ServerLevel world, Mob entity, double squaredDistance,
                                           CallbackInfoReturnable<Boolean> cir) {
-        final ActionResult result = SpawnEvents.BEFORE_MOB_SPAWN.invoker().spawn(world, entity, SpawnReason.NATURAL);
-        if (result == ActionResult.FAIL) {
+        final InteractionResult result = SpawnEvents.BEFORE_MOB_SPAWN.invoker().spawn(world, entity, EntitySpawnReason.NATURAL);
+        if (result == InteractionResult.FAIL) {
             cir.setReturnValue(false);
             cir.cancel();
         }

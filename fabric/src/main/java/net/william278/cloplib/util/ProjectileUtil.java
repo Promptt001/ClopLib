@@ -19,9 +19,9 @@
 
 package net.william278.cloplib.util;
 
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,13 +29,13 @@ import java.util.Set;
 
 public class ProjectileUtil {
 
-    private static final Identifier DISPENSED_KEY = Identifier.of("cloplib", "dispensed");
-    private static final Identifier ORIGIN_KEY = Identifier.of("cloplib", "origin");
+    private static final Identifier DISPENSED_KEY = Identifier.fromNamespaceAndPath("cloplib", "dispensed");
+    private static final Identifier ORIGIN_KEY = Identifier.fromNamespaceAndPath("cloplib", "origin");
 
     @Nullable
-    public static BlockPos getOrigin(@NotNull ProjectileEntity entity) {
+    public static BlockPos getOrigin(@NotNull Projectile entity) {
         // Check if set contains key
-        final Set<String> tags = entity.getCommandTags();
+        final Set<String> tags = entity.entityTags();
         if (!tags.contains(DISPENSED_KEY.toString())) {
             return null;
         }
@@ -49,15 +49,15 @@ public class ProjectileUtil {
 
         // Parse BlockPos from key
         try {
-            return BlockPos.fromLong(Long.parseLong(tag.split("/")[1]));
+            return BlockPos.of(Long.parseLong(tag.split("/")[1]));
         } catch (NumberFormatException | IndexOutOfBoundsException e) {
             return null;
         }
     }
 
-    public static void markOrigin(@NotNull ProjectileEntity entity, @NotNull BlockPos pos) {
-        entity.addCommandTag(DISPENSED_KEY.toString());
-        entity.addCommandTag("%s/%s".formatted(ORIGIN_KEY.toString(), pos.asLong()));
+    public static void markOrigin(@NotNull Projectile entity, @NotNull BlockPos pos) {
+        entity.addTag(DISPENSED_KEY.toString());
+        entity.addTag("%s/%s".formatted(ORIGIN_KEY.toString(), pos.asLong()));
     }
 
 }

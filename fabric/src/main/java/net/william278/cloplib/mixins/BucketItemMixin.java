@@ -19,15 +19,19 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.fluid.Fluid;
-import net.minecraft.item.BucketItem;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.item.BucketItem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(BucketItem.class)
 public interface BucketItemMixin {
 
-    @Accessor
+    /**
+     * The fluid this bucket holds. The underlying field is named {@code content};
+     * vanilla exposes it as {@code getContent()}.
+     */
+    @Accessor("content")
     Fluid getFluid();
 
 }

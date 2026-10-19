@@ -19,10 +19,10 @@
 
 package net.william278.cloplib.listener;
 
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import net.william278.cloplib.operation.Operation;
 import net.william278.cloplib.operation.OperationType;
 import org.jetbrains.annotations.NotNull;
@@ -30,15 +30,15 @@ import org.jetbrains.annotations.NotNull;
 public interface FabricWorldListener extends FabricListener {
 
     @NotNull
-    default ActionResult onRaidTriggered(@NotNull World world, @NotNull BlockPos pos, @NotNull PlayerEntity player) {
+    default InteractionResult onRaidTriggered(@NotNull Level world, @NotNull BlockPos pos, @NotNull Player player) {
         if (getHandler().cancelOperation(Operation.of(
                 getUser(player),
                 OperationType.START_RAID,
                 getPosition(pos, world)
         ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
 }

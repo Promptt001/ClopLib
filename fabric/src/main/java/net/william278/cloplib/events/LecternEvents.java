@@ -21,10 +21,10 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public final class LecternEvents {
@@ -34,13 +34,13 @@ public final class LecternEvents {
             BeforeBookTaken.class,
             (callbacks) -> (world, pos, player) -> {
                 for (BeforeBookTaken listener : callbacks) {
-                    final ActionResult result = listener.bookTaken(world, pos, player);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.bookTaken(world, pos, player);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -48,7 +48,7 @@ public final class LecternEvents {
     public interface BeforeBookTaken {
 
         @NotNull
-        ActionResult bookTaken(World world, BlockPos from, PlayerEntity player);
+        InteractionResult bookTaken(Level world, BlockPos from, Player player);
 
     }
 

@@ -19,37 +19,41 @@
 
 package net.william278.cloplib.mixins;
 
-import net.minecraft.block.AbstractBlock;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.entity.Entity;
 //#if MC>=12105
-import net.minecraft.entity.EntityCollisionHandler;
+import net.minecraft.world.entity.InsideBlockEffectApplier;
 //#endif
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import net.minecraft.util.ActionResult;
+import net.minecraft.world.InteractionResult;
 import net.william278.cloplib.events.PressureBlockEvents;
+import net.william278.cloplib.util.ClientSide;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 
-@Mixin(AbstractBlock.AbstractBlockState.class)
+@Mixin(BlockBehaviour.BlockStateBase.class)
 public abstract class AbstractBlockStateMixin {
 
-    @Inject(method = "onEntityCollision", at = @At("HEAD"), cancellable = true)
-    //#if MC==12105
-    private void onEntityCollisionMixin(World world, BlockPos pos, Entity entity, EntityCollisionHandler ech, CallbackInfo ci) {
-    //#else
-    //$$ private void onEntityCollisionMixin(World world, BlockPos pos, Entity entity, CallbackInfo ci) {
-    //#endif
+    // entityInside runs during client movement prediction as well as on the server,
+    // so client worlds are skipped; the listener checks again in case a future
+    // registration forgets to.
+    @Inject(method = "entityInside", at = @At("HEAD"), cancellable = true)
+    private void onEntityCollisionMixin(Level world, BlockPos pos, Entity entity, InsideBlockEffectApplier ech,
+                                         boolean canCancelEffects, CallbackInfo ci) {
+        if (ClientSide.skip(world)) {
+            return;
+        }
         final BlockState state = world.getBlockState(pos);
-        if (state == null || state.isAir()) {
+        if (state.isAir()) {
             return;
         }
 
-        final ActionResult result = PressureBlockEvents.BEFORE_COLLISION.invoker().collide(world, pos, state, entity);
-        if (result == ActionResult.FAIL) {
+        final InteractionResult result = PressureBlockEvents.BEFORE_COLLISION.invoker().collide(world, pos, state, entity);
+        if (result == InteractionResult.FAIL) {
             ci.cancel();
         }
     }

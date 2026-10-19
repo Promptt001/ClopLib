@@ -1,4 +1,0 @@
-accessWidener v2 named
-
-accessible method net/minecraft/entity/player/PlayerEntity isImmobile ()Z
-accessible field net/minecraft/world/explosion/Explosion world Lnet/minecraft/world/World;

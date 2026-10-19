@@ -20,8 +20,8 @@
 //#if MC>=12104
 package net.william278.cloplib.mixins;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.explosion.ExplosionImpl;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ServerExplosion;
 import net.william278.cloplib.events.ExplosionEvents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -30,15 +30,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.util.List;
 
-@Mixin(ExplosionImpl.class)
+@Mixin(ServerExplosion.class)
 public abstract class ExplosionImplMixin {
 
     @Shadow
-    protected abstract List<BlockPos> getBlocksToDestroy();
+    protected abstract List<BlockPos> calculateExplodedPositions();
 
-    @Redirect(method = "explode", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/explosion/ExplosionImpl;getBlocksToDestroy()Ljava/util/List;"))
-    private List<BlockPos> explodeMixin(ExplosionImpl instance) {
-        return ExplosionEvents.BEFORE_BLOCKS_BROKEN.invoker().explode(instance, getBlocksToDestroy());
+    @Redirect(method = "explode", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/ServerExplosion;calculateExplodedPositions()Ljava/util/List;"))
+    private List<BlockPos> explodeMixin(ServerExplosion instance) {
+        return ExplosionEvents.BEFORE_BLOCKS_BROKEN.invoker().explode(instance, this.calculateExplodedPositions());
     }
 
 }

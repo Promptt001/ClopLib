@@ -21,11 +21,11 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public final class PressureBlockEvents {
@@ -35,13 +35,13 @@ public final class PressureBlockEvents {
             BeforeCollisionCallback.class,
             (callbacks) -> (world, pos, state, entity) -> {
                 for (BeforeCollisionCallback listener : callbacks) {
-                    final ActionResult result = listener.collide(world, pos, state, entity);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.collide(world, pos, state, entity);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -49,7 +49,7 @@ public final class PressureBlockEvents {
     public interface BeforeCollisionCallback {
 
         @NotNull
-        ActionResult collide(World world, BlockPos pos, BlockState block, Entity playerEntity);
+        InteractionResult collide(Level world, BlockPos pos, BlockState block, Entity playerEntity);
 
     }
 

@@ -2,13 +2,13 @@
   "required": true,
   "minVersion": "0.8",
   "package": "net.william278.cloplib.mixins",
-  "compatibilityLevel": "JAVA_17",
-  "server": [
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
     "AbstractBlockStateMixin",
     "BlockDispenserBehaviourMixin",
     "BucketItemMixin",
     "ExplosionBehaviourMixin",
-    "ExplosionMixin",
+    "ExplosionImplMixin",
     "FireBlockMixin",
     "FlowableFluidMixin",
     "LecternBlockEntityMixin",

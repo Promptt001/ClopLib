@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "cloplib",
+  "version": "${version}",
+  "description": "${description}",
+  "name": "cloplib",
+  "authors": [
+    "William278"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Promptt001/HuskClaimsPlus",
+    "issues": "https://github.com/Promptt001/ClopLib/issues",
+    "sources": "https://github.com/Promptt001/ClopLib"
+  },
+  "license": "Apache-2.0",
+  "custom": {
+    "modmenu:api": true,
+    "modmenu": {
+      "badges": [
+        "library"
+      ]
+    }
+  },
+  "mixins": [
+    "cloplib.mixins.json"
+  ],
+  "depends": {
+    "fabric-api": "*"
+  },
+  "accessWidener": "cloplib.accesswidener"
+}

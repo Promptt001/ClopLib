@@ -21,9 +21,9 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public final class DispenserEvents {
@@ -33,13 +33,13 @@ public final class DispenserEvents {
             BeforePlaceCallback.class,
             (callbacks) -> (world, dispenser, placedPos) -> {
                 for (BeforePlaceCallback listener : callbacks) {
-                    final ActionResult result = listener.place(world, dispenser, placedPos);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.place(world, dispenser, placedPos);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -47,7 +47,7 @@ public final class DispenserEvents {
     public interface BeforePlaceCallback {
 
         @NotNull
-        ActionResult place(World world, BlockPos dispenser, BlockPos placedPos);
+        InteractionResult place(Level world, BlockPos dispenser, BlockPos placedPos);
 
     }
 

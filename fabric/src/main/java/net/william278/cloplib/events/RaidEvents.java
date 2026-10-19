@@ -21,10 +21,10 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public final class RaidEvents {
@@ -34,13 +34,13 @@ public final class RaidEvents {
             BeforeStartCallback.class,
             (callbacks) -> (world, pos, player) -> {
                 for (BeforeStartCallback listener : callbacks) {
-                    final ActionResult result = listener.starts(world, pos, player);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.starts(world, pos, player);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -48,7 +48,7 @@ public final class RaidEvents {
     public interface BeforeStartCallback {
 
         @NotNull
-        ActionResult starts(World world, BlockPos from, PlayerEntity player);
+        InteractionResult starts(Level world, BlockPos from, Player player);
 
     }
 

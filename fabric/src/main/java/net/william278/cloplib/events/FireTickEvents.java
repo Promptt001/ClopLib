@@ -21,9 +21,9 @@ package net.william278.cloplib.events;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 public final class FireTickEvents {
@@ -33,13 +33,13 @@ public final class FireTickEvents {
             BeforeSpreadCallback.class,
             (callbacks) -> (world, pos) -> {
                 for (BeforeSpreadCallback listener : callbacks) {
-                    final ActionResult result = listener.fireSpread(world, pos);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.fireSpread(world, pos);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -48,13 +48,13 @@ public final class FireTickEvents {
             BeforeBurnCallback.class,
             (callbacks) -> (world, pos) -> {
                 for (BeforeBurnCallback listener : callbacks) {
-                    final ActionResult result = listener.fireBurn(world, pos);
-                    if (result != ActionResult.PASS) {
+                    final InteractionResult result = listener.fireBurn(world, pos);
+                    if (result != InteractionResult.PASS) {
                         return result;
                     }
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
     );
 
@@ -62,7 +62,7 @@ public final class FireTickEvents {
     public interface BeforeSpreadCallback {
 
         @NotNull
-        ActionResult fireSpread(World world, BlockPos pos);
+        InteractionResult fireSpread(Level world, BlockPos pos);
 
     }
 
@@ -70,7 +70,7 @@ public final class FireTickEvents {
     public interface BeforeBurnCallback {
 
         @NotNull
-        ActionResult fireBurn(World world, BlockPos pos);
+        InteractionResult fireBurn(Level world, BlockPos pos);
 
     }
 

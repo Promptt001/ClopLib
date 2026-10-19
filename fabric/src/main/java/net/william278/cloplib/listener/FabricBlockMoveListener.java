@@ -19,10 +19,10 @@
 
 package net.william278.cloplib.listener;
 
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
 import net.william278.cloplib.operation.Operation;
 import net.william278.cloplib.operation.OperationPosition;
 import net.william278.cloplib.operation.OperationType;
@@ -34,20 +34,20 @@ public interface FabricBlockMoveListener extends FabricListener {
 
     // Stop fluids from entering claims
     @NotNull
-    default ActionResult onBlockFromTo(@NotNull World world, @NotNull BlockPos from, @NotNull BlockPos to) {
+    default InteractionResult onBlockFromTo(@NotNull Level world, @NotNull BlockPos from, @NotNull BlockPos to) {
         final OperationPosition blockPosition = getPosition(from, world);
         if (getHandler().cancelNature(
                 blockPosition.getWorld(),
                 blockPosition,
                 getPosition(to, world))
         ) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
     @NotNull
-    default ActionResult onPistonActuate(World world, BlockPos pistonBlock, Direction pistonDirection,
+    default InteractionResult onPistonActuate(Level world, BlockPos pistonBlock, Direction pistonDirection,
                                          List<BlockPos> affectedBlocks) {
         final OperationPosition pistonPos = getPosition(pistonBlock, world);
         
@@ -56,19 +56,19 @@ public interface FabricBlockMoveListener extends FabricListener {
                 pistonPos,
                 true
         ))) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
         
         for (final BlockPos blockPos : affectedBlocks) {
             if (getHandler().cancelNature(
                     pistonPos.getWorld(),
                     pistonPos,
-                    getPosition(blockPos.offset(pistonDirection), world)
+                    getPosition(blockPos.relative(pistonDirection), world)
             )) {
-                return ActionResult.FAIL;
+                return InteractionResult.FAIL;
             }
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
 }
